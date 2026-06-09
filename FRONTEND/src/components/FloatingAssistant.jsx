@@ -161,8 +161,8 @@ const FloatingAssistant = () => {
       : 'opacity-0 scale-95 translate-y-4 pointer-events-none'
   } ${
     isFullscreen 
-      ? 'inset-0 w-screen h-screen rounded-none border-none' 
-      : 'bottom-24 right-6 w-96 max-w-[calc(100vw-3rem)] h-[530px] rounded-2xl border-2 border-brand-primary/50 md:border md:border-brand-primary/35 shadow-glow'
+      ? 'inset-0 w-screen h-screen rounded-none !border-none' 
+      : 'bottom-24 right-6 w-96 max-w-[calc(100vw-3rem)] h-[530px] rounded-2xl !border-2 !border-brand-primary/60 md:!border md:!border-brand-primary/40 shadow-[0_0_25px_rgba(99,102,241,0.25)]'
   }`;
 
   return (
