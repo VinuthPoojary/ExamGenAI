@@ -61,6 +61,26 @@ const FloatingAssistant = () => {
     fetchDocs();
   }, []);
 
+  // Lock body scroll on mobile screens when the assistant is open
+  useEffect(() => {
+    const handleBodyScroll = () => {
+      const isMobile = window.innerWidth < 768;
+      if (isOpen && isMobile) {
+        document.body.style.overflow = 'hidden';
+      } else {
+        document.body.style.overflow = '';
+      }
+    };
+
+    handleBodyScroll();
+    window.addEventListener('resize', handleBodyScroll);
+
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('resize', handleBodyScroll);
+    };
+  }, [isOpen]);
+
   const handleSend = async (e, customText = null) => {
     if (e) e.preventDefault();
     const textToSend = customText || inputText;
@@ -155,7 +175,7 @@ const FloatingAssistant = () => {
     return <div dangerouslySetInnerHTML={{ __html: html }} className="space-y-1 text-xs text-brand-textSecondary" />;
   };
 
-  const panelClasses = `fixed z-50 glass-panel shadow-2xl flex flex-col overflow-hidden transition-all duration-300 ease-out ${
+  const panelClasses = `fixed z-50 glass-panel shadow-2xl flex flex-col overflow-hidden overscroll-contain transition-all duration-300 ease-out ${
     isOpen 
       ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto' 
       : 'opacity-0 scale-95 translate-y-4 pointer-events-none'
@@ -219,7 +239,7 @@ const FloatingAssistant = () => {
         </div>
 
         {/* Messages Log Container */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3.5 scrollbar-thin">
+        <div className="flex-1 overflow-y-auto p-4 space-y-3.5 scrollbar-thin overscroll-contain">
           {messages.map((msg) => (
             <div 
               key={msg.id}
