@@ -155,14 +155,14 @@ const FloatingAssistant = () => {
     return <div dangerouslySetInnerHTML={{ __html: html }} className="space-y-1 text-xs text-brand-textSecondary" />;
   };
 
-  const panelClasses = `fixed z-50 glass-panel border border-brand-border/60 shadow-2xl flex flex-col overflow-hidden transition-all duration-300 ease-out ${
+  const panelClasses = `fixed z-50 glass-panel shadow-2xl flex flex-col overflow-hidden transition-all duration-300 ease-out ${
     isOpen 
       ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto' 
       : 'opacity-0 scale-95 translate-y-4 pointer-events-none'
   } ${
     isFullscreen 
-      ? 'inset-0 w-screen h-screen rounded-none' 
-      : 'bottom-24 right-6 w-96 max-w-[calc(100vw-3rem)] h-[530px] rounded-2xl'
+      ? 'inset-0 w-screen h-screen rounded-none border-none' 
+      : 'bottom-24 right-6 w-96 max-w-[calc(100vw-3rem)] h-[530px] rounded-2xl border-2 border-brand-primary/50 md:border md:border-brand-primary/35 shadow-glow'
   }`;
 
   return (
