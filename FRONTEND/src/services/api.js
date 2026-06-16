@@ -21,12 +21,17 @@ API.interceptors.request.use(
   }
 );
 
-// Optional: Interceptor to handle global token expirations or auth errors
+// Interceptor to handle global token expirations or auth errors
 API.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      // Clear storage and redirect/log out could be initiated here, but let's let AuthContext handle it
+      const isLoginRequest = error.config && error.config.url && error.config.url.includes('/auth/login');
+      if (!isLoginRequest) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.dispatchEvent(new Event('auth-logout'));
+      }
     }
     return Promise.reject(error);
   }

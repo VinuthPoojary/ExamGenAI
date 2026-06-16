@@ -37,6 +37,19 @@ export const AuthProvider = ({ children }) => {
     initializeAuth();
   }, [token]);
 
+  useEffect(() => {
+    const handleGlobalLogout = () => {
+      setToken(null);
+      setUser(null);
+      setError('Your session has expired. Please log in again.');
+    };
+
+    window.addEventListener('auth-logout', handleGlobalLogout);
+    return () => {
+      window.removeEventListener('auth-logout', handleGlobalLogout);
+    };
+  }, []);
+
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
