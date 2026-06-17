@@ -10,7 +10,10 @@ import {
   BarChart3, 
   User, 
   LogOut,
-  X
+  X,
+  GraduationCap,
+  Bot,
+  Mic
 } from 'lucide-react';
 
 const Sidebar = ({ isOpen, onClose }) => {
@@ -25,9 +28,12 @@ const Sidebar = ({ isOpen, onClose }) => {
 
   const navItems = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+    { name: 'Learning Hub', path: '/learning-hub', icon: GraduationCap },
+    { name: 'AI Study Assistant', path: '/assistant', icon: Bot },
     { name: 'Upload PDF', path: '/upload-pdf', icon: UploadCloud },
     { name: 'Generate Test', path: '/generate-test', icon: BookOpen },
     { name: 'Take Test', path: '/take-test/select', icon: ClipboardCheck, label: 'Attempt' },
+    { name: 'Mock Interview', path: '/mock-interview', icon: Mic },
     { name: 'Results', path: '/results/history', icon: Award },
     { name: 'Analytics', path: '/analytics', icon: BarChart3 },
     { name: 'Profile', path: '/profile', icon: User }

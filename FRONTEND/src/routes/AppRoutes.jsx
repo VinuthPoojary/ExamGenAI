@@ -17,10 +17,17 @@ import ForgotPassword from '../pages/ForgotPassword';
 import Dashboard from '../pages/Dashboard';
 import UploadPDF from '../pages/UploadPDF';
 import GenerateTest from '../pages/GenerateTest';
+import Assistant from '../pages/Assistant';
+import MockInterviewHub from '../pages/MockInterviewHub';
+import MockInterviewWorkspace from '../pages/MockInterviewWorkspace';
+import MockInterviewReport from '../pages/MockInterviewReport';
 import TakeTest from '../pages/TakeTest';
 import Results from '../pages/Results';
 import Analytics from '../pages/Analytics';
 import Profile from '../pages/Profile';
+import LearningHub from '../pages/LearningHub';
+import LearningSubject from '../pages/LearningSubject';
+import LearningNotesViewer from '../pages/LearningNotesViewer';
 
 const AppRoutes = () => {
   return (
@@ -41,9 +48,16 @@ const AppRoutes = () => {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/upload-pdf" element={<UploadPDF />} />
           <Route path="/generate-test" element={<GenerateTest />} />
+          <Route path="/assistant" element={<Assistant />} />
+          <Route path="/mock-interview" element={<MockInterviewHub />} />
+          <Route path="/mock-interview/session/:id" element={<MockInterviewWorkspace />} />
+          <Route path="/mock-interview/report/:id" element={<MockInterviewReport />} />
           <Route path="/results/:id" element={<Results />} />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/learning-hub" element={<LearningHub />} />
+          <Route path="/learning-hub/:branch/:subjectId" element={<LearningSubject />} />
+          <Route path="/learning-hub/:branch/:subjectId/:topicId" element={<LearningNotesViewer />} />
         </Route>
 
         {/* Protected Routes - Distraction-Free Exam View */}

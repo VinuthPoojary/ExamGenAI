@@ -4,7 +4,7 @@ import { Bell, Menu, User, LogOut, ChevronDown, BookOpen, Sun, Moon } from 'luci
 import { useNavigate } from 'react-router-dom';
 import { getNotifications, markAsRead, markAllAsRead } from '../services/notificationService';
 
-const Navbar = () => {
+const Navbar = ({ onMenuClick }) => {
   const { user, logout } = useAuth();
   const [showDropdown, setShowDropdown] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -110,17 +110,27 @@ const Navbar = () => {
 
   return (
     <header className="sticky top-0 z-30 w-full glass-panel border-b border-brand-border/30 h-16 flex items-center justify-between px-6">
-      {/* Brand Logo Header */}
-      <div 
-        onClick={() => navigate('/dashboard')}
-        className="flex items-center space-x-3 cursor-pointer hover:opacity-90 transition-opacity select-none"
-      >
-        <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-brand-primary to-brand-secondary flex items-center justify-center shadow-glow">
-          <span className="text-lg font-bold text-white tracking-wider font-sans">Æ</span>
+      {/* Brand Logo & Mobile Menu Toggle */}
+      <div className="flex items-center space-x-2.5">
+        <button 
+          onClick={onMenuClick}
+          className="p-1.5 rounded-lg text-brand-textSecondary hover:text-brand-textPrimary hover:bg-brand-darkBg/60 md:hidden flex items-center justify-center cursor-pointer"
+          aria-label="Toggle Navigation Sidebar"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+
+        <div 
+          onClick={() => navigate('/dashboard')}
+          className="flex items-center space-x-3 cursor-pointer hover:opacity-90 transition-opacity select-none"
+        >
+          <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-brand-primary to-brand-secondary flex items-center justify-center shadow-glow">
+            <span className="text-lg font-bold text-white tracking-wider font-sans">Æ</span>
+          </div>
+          <span className="text-xl font-bold text-brand-textPrimary tracking-tight font-sans">
+            ExamGen <span className="text-brand-accent">AI</span>
+          </span>
         </div>
-        <span className="text-xl font-bold text-brand-textPrimary tracking-tight font-sans">
-          ExamGen <span className="text-brand-accent">AI</span>
-        </span>
       </div>
 
       {/* User Actions */}

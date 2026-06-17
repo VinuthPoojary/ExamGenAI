@@ -13,11 +13,17 @@ import {
   BookOpen, 
   BarChart3, 
   ChevronRight,
-  Sparkles
+  Sparkles,
+  GraduationCap,
+  Bookmark,
+  History,
+  Lightbulb
 } from 'lucide-react';
 import analyticsService from '../services/analyticsService';
 import documentService from '../services/documentService';
 import testService from '../services/testService';
+import learningService from '../services/learningService';
+import { branchCatalog } from '../config/learningCatalog';
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -26,6 +32,7 @@ const Dashboard = () => {
   const [stats, setStats] = useState(null);
   const [recentDocs, setRecentDocs] = useState([]);
   const [recentTests, setRecentTests] = useState([]);
+  const [learningProgress, setLearningProgress] = useState(null);
 
   useEffect(() => {
     const loadDashboardData = async () => {
@@ -42,6 +49,14 @@ const Dashboard = () => {
         // Load recent tests
         const testsData = await testService.getTests();
         setRecentTests((testsData.tests || []).slice(0, 3));
+
+        // Load learning progress
+        try {
+          const progData = await learningService.getProgress();
+          setLearningProgress(progData.progress);
+        } catch (e) {
+          console.error("Failed to load learning progress on dashboard:", e);
+        }
       } catch (err) {
         console.error("Dashboard data load failed:", err);
       } finally {
@@ -125,6 +140,146 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* B.Tech Learning Hub Progress Module */}
+      {learningProgress && (
+        <div className="glass-panel border border-brand-border/40 rounded-3xl p-6 shadow-xl space-y-6">
+          <div className="flex justify-between items-center border-b border-brand-border/10 pb-3">
+            <div className="flex items-center space-x-2.5">
+              <div className="p-2 rounded-xl bg-brand-primary/10 text-brand-primary border border-brand-primary/20">
+                <GraduationCap className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold tracking-wider text-brand-textPrimary uppercase">Learning Hub Progress</h3>
+                <p className="text-[10px] text-brand-textSecondary mt-0.5">Syllabus completion rate: {learningProgress.stats.totalCompleted} / {learningProgress.stats.totalTopicsCount} topics</p>
+              </div>
+            </div>
+            <button 
+              onClick={() => navigate('/learning-hub')}
+              className="py-1.5 px-3.5 bg-brand-primary hover:shadow-glow text-white text-xs font-bold rounded-xl transition-all cursor-pointer"
+            >
+              Open Learning Hub
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* Left Column: Progress Bars & Recents (lg:col-span-7) */}
+            <div className="lg:col-span-7 space-y-5">
+              {/* Progress bars */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="p-4 rounded-xl bg-brand-darkBg/40 border border-brand-border/20 space-y-2">
+                  <div className="flex justify-between text-xs font-bold text-brand-textSecondary">
+                    <span>CSE Syllabus</span>
+                    <span className="font-mono text-brand-primary">{learningProgress.stats.csePercentage}%</span>
+                  </div>
+                  <div className="h-2 bg-brand-darkBg rounded-full overflow-hidden border border-brand-border/30">
+                    <div className="h-full bg-brand-primary rounded-full" style={{ width: `${learningProgress.stats.csePercentage}%` }}></div>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-xl bg-brand-darkBg/40 border border-brand-border/20 space-y-2">
+                  <div className="flex justify-between text-xs font-bold text-brand-textSecondary">
+                    <span>ECE Syllabus</span>
+                    <span className="font-mono text-brand-secondary">{learningProgress.stats.ecePercentage}%</span>
+                  </div>
+                  <div className="h-2 bg-brand-darkBg rounded-full overflow-hidden border border-brand-border/30">
+                    <div className="h-full bg-brand-secondary rounded-full" style={{ width: `${learningProgress.stats.ecePercentage}%` }}></div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Recently Viewed & Bookmarked Carousel list */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Bookmarked topics */}
+                <div className="space-y-2">
+                  <span className="text-[10px] font-bold text-brand-textSecondary uppercase tracking-wider flex items-center gap-1">
+                    <Bookmark className="w-3.5 h-3.5 text-brand-warning" />
+                    <span>Bookmarked Topics</span>
+                  </span>
+                  <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
+                    {learningProgress.bookmarkedTopics.length === 0 ? (
+                      <p className="text-[10px] text-brand-textSecondary italic py-3 text-center border border-dashed border-brand-border/30 rounded-xl">No bookmarked topics</p>
+                    ) : (
+                      learningProgress.bookmarkedTopics.slice(0, 3).map((t, idx) => {
+                        const detail = branchCatalog[t.branch]?.subjects.find(s => s.id === t.subjectId)?.topics.find(top => top.id === t.topicId);
+                        return (
+                          <div 
+                            key={idx}
+                            onClick={() => navigate(`/learning-hub/${t.branch}/${t.subjectId}/${t.topicId}`)}
+                            className="p-2.5 rounded-xl border border-brand-border/30 bg-brand-darkBg/25 hover:border-brand-warning/30 hover:bg-brand-darkBg/50 text-[11px] cursor-pointer truncate flex items-center justify-between"
+                          >
+                            <span className="truncate font-medium text-brand-textPrimary" title={detail?.name || t.topicId}>{detail?.name || t.topicId}</span>
+                            <ChevronRight className="w-3.5 h-3.5 text-brand-textSecondary shrink-0 ml-1.5" />
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+
+                {/* Recently Viewed topics */}
+                <div className="space-y-2">
+                  <span className="text-[10px] font-bold text-brand-textSecondary uppercase tracking-wider flex items-center gap-1">
+                    <History className="w-3.5 h-3.5 text-brand-accent" />
+                    <span>Recently Viewed</span>
+                  </span>
+                  <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
+                    {learningProgress.recentlyViewed.length === 0 ? (
+                      <p className="text-[10px] text-brand-textSecondary italic py-3 text-center border border-dashed border-brand-border/30 rounded-xl">No viewed topics recently</p>
+                    ) : (
+                      learningProgress.recentlyViewed.slice(0, 3).map((t, idx) => {
+                        const detail = branchCatalog[t.branch]?.subjects.find(s => s.id === t.subjectId)?.topics.find(top => top.id === t.topicId);
+                        return (
+                          <div 
+                            key={idx}
+                            onClick={() => navigate(`/learning-hub/${t.branch}/${t.subjectId}/${t.topicId}`)}
+                            className="p-2.5 rounded-xl border border-brand-border/30 bg-brand-darkBg/25 hover:border-brand-primary/20 hover:bg-brand-darkBg/50 text-[11px] cursor-pointer truncate flex items-center justify-between"
+                          >
+                            <span className="truncate font-medium text-brand-textPrimary" title={detail?.name || t.topicId}>{detail?.name || t.topicId}</span>
+                            <ChevronRight className="w-3.5 h-3.5 text-brand-textSecondary shrink-0 ml-1.5" />
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column: AI Recommendations (lg:col-span-5) */}
+            <div className="lg:col-span-5 space-y-2.5">
+              <span className="text-[10px] font-bold text-brand-textSecondary uppercase tracking-wider flex items-center gap-1">
+                <Lightbulb className="w-3.5 h-3.5 text-brand-accent animate-pulse" />
+                <span>Recommended Study Topics</span>
+              </span>
+              <div className="space-y-2.5">
+                {learningProgress.recommendations.length === 0 ? (
+                  <div className="p-8 text-center border border-dashed border-brand-border/30 rounded-2xl">
+                    <p className="text-xs text-brand-textSecondary font-semibold">Syllabus Mastered!</p>
+                    <p className="text-[10px] text-brand-textSecondary/70 mt-1">You completed all topics in the active learning catalog.</p>
+                  </div>
+                ) : (
+                  learningProgress.recommendations.map((rec, idx) => (
+                    <div 
+                      key={idx}
+                      onClick={() => navigate(`/learning-hub/${rec.branch}/${rec.subjectId}/${rec.topicId}`)}
+                      className="p-3 rounded-xl border border-brand-border/30 bg-brand-darkBg/30 hover:border-brand-accent/40 hover:bg-brand-darkBg/60 transition-all cursor-pointer flex items-center justify-between text-xs group"
+                    >
+                      <div className="space-y-0.5 min-w-0 max-w-[80%]">
+                        <span className="text-[9px] font-bold font-mono text-brand-accent uppercase block">{rec.subjectName}</span>
+                        <p className="font-bold text-brand-textPrimary truncate group-hover:text-brand-accent transition-colors">{rec.topicName}</p>
+                      </div>
+                      <button className="py-1 px-2.5 bg-brand-accent/10 border border-brand-accent/20 rounded-lg text-[10px] font-bold text-brand-accent group-hover:bg-brand-accent group-hover:text-white transition-all">
+                        Study
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Portal Launcher Grid (The "Middle" Options) */}
       <div className="space-y-4">

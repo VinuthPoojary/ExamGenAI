@@ -22,6 +22,19 @@ const AnswerDetailSchema = new mongoose.Schema({
     suggestions:      { type: String, default: '' },
     detailedFeedback: { type: String, default: '' },
   },
+  subAnswers: [
+    {
+      questionId:    { type: String },
+      questionType:  { type: String },
+      questionText:  { type: String },
+      studentAnswer: { type: String, default: '' },
+      correctAnswer: { type: String, default: '' },
+      marksObtained: { type: Number, default: 0 },
+      maxMarks:      { type: Number, default: 1 },
+      isCorrect:     { type: Boolean, default: false },
+      explanation:   { type: String, default: '' }
+    }
+  ]
 }, { _id: false });
 
 const ResultSchema = new mongoose.Schema(

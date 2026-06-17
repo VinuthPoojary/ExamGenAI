@@ -19,17 +19,32 @@ const formatResultForClient = (resVal, testObj, questionFeedback) => {
       acc[curr.question] = curr.studentAnswer;
       return acc;
     }, {}),
-    questionFeedback: questionFeedback || resVal.answers.map(ans => ({
-      questionId: ans.question,
-      type: ans.questionType,
-      question: ans.questionText,
-      studentAnswer: ans.studentAnswer,
-      modelAnswer: ans.correctAnswer, // correctAnswer in AnswerDetailSchema maps to modelAnswer ref
-      allocatedMarks: ans.marksObtained,
-      maxMarks: ans.maxMarks,
-      status: ans.isCorrect ? 'correct' : (ans.marksObtained > 0 ? 'partially_correct' : 'incorrect'),
-      explanation: ans.aiFeedback ? ans.aiFeedback.suggestions : ''
-    })),
+    questionFeedback: questionFeedback || resVal.answers.flatMap(ans => {
+      if (ans.questionType === 'scenario' && ans.subAnswers && ans.subAnswers.length > 0) {
+        return ans.subAnswers.map(subAns => ({
+          questionId: subAns.questionId,
+          type: subAns.questionType,
+          question: `[Scenario Part] ${subAns.questionText}`,
+          studentAnswer: subAns.studentAnswer,
+          modelAnswer: subAns.correctAnswer,
+          allocatedMarks: subAns.marksObtained,
+          maxMarks: subAns.maxMarks,
+          status: subAns.isCorrect ? 'correct' : (subAns.marksObtained > 0 ? 'partially_correct' : 'incorrect'),
+          explanation: subAns.explanation
+        }));
+      }
+      return {
+        questionId: ans.question,
+        type: ans.questionType,
+        question: ans.questionText,
+        studentAnswer: ans.studentAnswer,
+        modelAnswer: ans.correctAnswer, // correctAnswer in AnswerDetailSchema maps to modelAnswer ref
+        allocatedMarks: ans.marksObtained,
+        maxMarks: ans.maxMarks,
+        status: ans.isCorrect ? 'correct' : (ans.marksObtained > 0 ? 'partially_correct' : 'incorrect'),
+        explanation: ans.aiFeedback ? ans.aiFeedback.suggestions : ''
+      };
+    }),
     weakTopics: resVal.weakTopics || [],
     aiSuggestions: resVal.answers.length > 0 ? (resVal.percentageScore >= 80 ? 'Mastery level performance! Consider deep-diving into performance optimization algorithms or advanced architectural blueprints.' : (resVal.percentageScore >= 50 ? 'Good overall work. Focus on writing more detailed answers, explain comparisons structurally, and study design patterns.' : 'Your conceptual foundation requires immediate review. Re-read the chapters, practice standard syntax declarations, and verify theoretical separation patterns.')) : 'No attempts recorded.',
     createdAt: resVal.createdAt
@@ -254,6 +269,7 @@ const submitTest = async (req, res, next) => {
 
       } else if (q.type === 'scenario') {
         const scenarioSubFeedbacks = [];
+        const subAnswersDb = [];
         let scenarioMarksObtained = 0;
         let scenarioMaxMarks = 0;
 
@@ -284,15 +300,31 @@ const submitTest = async (req, res, next) => {
           scenarioMarksObtained += subScore;
           scenarioMaxMarks += sub.maxMarks;
 
+          const optArr = [sub.options.A, sub.options.B, sub.options.C, sub.options.D];
+          const studentAnsText = sub.type === 'mcq' ? (subStudentAns !== undefined ? optArr[subStudentAns] : 'No Answer') : (subStudentAns || 'Not Attempted');
+          const correctAnsText = sub.type === 'mcq' ? sub.options[sub.correctAnswer] : sub.modelAnswer;
+
           scenarioSubFeedbacks.push({
             questionId: subQKey,
             type: sub.type,
             question: `[Scenario Part] ${sub.questionText}`,
-            studentAnswer: sub.type === 'mcq' ? (subStudentAns !== undefined ? [sub.options.A, sub.options.B, sub.options.C, sub.options.D][subStudentAns] : 'No Answer') : (subStudentAns || 'Not Attempted'),
-            modelAnswer: sub.type === 'mcq' ? sub.options[sub.correctAnswer] : sub.modelAnswer,
+            studentAnswer: studentAnsText,
+            modelAnswer: correctAnsText,
             allocatedMarks: subScore,
             maxMarks: sub.maxMarks,
             status: subStatus,
+            explanation: subFeedback
+          });
+
+          subAnswersDb.push({
+            questionId: subQKey,
+            questionType: sub.type,
+            questionText: sub.questionText,
+            studentAnswer: studentAnsText,
+            correctAnswer: correctAnsText,
+            marksObtained: subScore,
+            maxMarks: sub.maxMarks,
+            isCorrect: subStatus === 'correct',
             explanation: subFeedback
           });
         });
@@ -314,7 +346,8 @@ const submitTest = async (req, res, next) => {
             correctConcepts: scenarioMarksObtained === scenarioMaxMarks ? [q.topic] : [],
             missingConcepts: scenarioMarksObtained !== scenarioMaxMarks ? [q.topic] : [],
             suggestions: 'Evaluation of specifications completed.'
-          }
+          },
+          subAnswers: subAnswersDb
         });
 
         scenarioSubFeedbacks.forEach(feed => questionFeedback.push(feed));
@@ -433,22 +466,37 @@ const getResult = async (req, res, next) => {
     for (const ans of result.answers) {
       const q = questions.find(item => item._id.toString() === ans.question.toString());
       if (q && q.type === 'scenario') {
-        (q.subQuestions || []).forEach((sub, subIdx) => {
-          const subKey = `${q._id}_${subIdx}`;
-          // Read actual score if it was saved, or fallback
-          const isCorrect = sub.correctAnswer ? (sub.correctAnswer === 'B') : true; // mock fallback consistency
-          questionFeedback.push({
-            questionId: subKey,
-            type: sub.type,
-            question: `[Scenario Part] ${sub.questionText}`,
-            studentAnswer: sub.type === 'mcq' ? sub.options[sub.correctAnswer] : 'Attempted',
-            modelAnswer: sub.type === 'mcq' ? sub.options[sub.correctAnswer] : sub.modelAnswer,
-            allocatedMarks: sub.maxMarks,
-            maxMarks: sub.maxMarks,
-            status: 'correct',
-            explanation: sub.explanation || ''
+        if (ans.subAnswers && ans.subAnswers.length > 0) {
+          ans.subAnswers.forEach(subAns => {
+            questionFeedback.push({
+              questionId: subAns.questionId,
+              type: subAns.questionType,
+              question: `[Scenario Part] ${subAns.questionText}`,
+              studentAnswer: subAns.studentAnswer,
+              modelAnswer: subAns.correctAnswer,
+              allocatedMarks: subAns.marksObtained,
+              maxMarks: subAns.maxMarks,
+              status: subAns.isCorrect ? 'correct' : (subAns.marksObtained > 0 ? 'partially_correct' : 'incorrect'),
+              explanation: subAns.explanation
+            });
           });
-        });
+        } else {
+          // Fallback compatibility for older records
+          (q.subQuestions || []).forEach((sub, subIdx) => {
+            const subKey = `${q._id}_${subIdx}`;
+            questionFeedback.push({
+              questionId: subKey,
+              type: sub.type,
+              question: `[Scenario Part] ${sub.questionText}`,
+              studentAnswer: sub.type === 'mcq' ? sub.options[sub.correctAnswer] : 'Attempted',
+              modelAnswer: sub.type === 'mcq' ? sub.options[sub.correctAnswer] : sub.modelAnswer,
+              allocatedMarks: sub.maxMarks,
+              maxMarks: sub.maxMarks,
+              status: 'correct',
+              explanation: sub.explanation || ''
+            });
+          });
+        }
       } else {
         const isCorrect = ans.isCorrect;
         const isPartial = !isCorrect && ans.marksObtained > 0;
