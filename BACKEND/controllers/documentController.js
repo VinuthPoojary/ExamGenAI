@@ -2,6 +2,8 @@ const path = require('path');
 const fs = require('fs');
 const pdfParse = require('pdf-parse');
 const Document = require('../models/Document');
+const DocumentChunk = require('../models/DocumentChunk');
+const ragService = require('../services/ragService');
 const { sendNotification } = require('../services/notificationService');
 
 /**
@@ -35,8 +37,14 @@ const uploadDocument = async (req, res, next) => {
     const dataBuffer = fs.readFileSync(req.file.path);
     const pdfData = await pdfParse(dataBuffer);
 
-    // Save extracted text and mark as completed
+    // Save extracted text
     document.extractedText     = pdfData.text;
+    await document.save();
+
+    // Index the document chunks & embeddings for RAG
+    await ragService.indexDocument(document._id, req.user.id, pdfData.text);
+
+    // Mark as completed
     document.processingStatus  = 'completed';
     await document.save();
 
@@ -148,6 +156,9 @@ const deleteDocument = async (req, res, next) => {
     if (fs.existsSync(document.filePath)) {
       fs.unlinkSync(document.filePath);
     }
+
+    // Clean up RAG chunks
+    await DocumentChunk.deleteMany({ document: document._id });
 
     await document.deleteOne();
 

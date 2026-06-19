@@ -33,16 +33,36 @@ Branch: ${branch}
 Subject: ${subjectName}
 Topic: ${topicName}
 
-Please produce a structured educational output containing detailed technical explanations, definitions, key concepts, examples, advantages, disadvantages, exam highlights, and interview preparation questions.
+Please produce a highly structured, clear, and academically rigorous educational study guide. Avoid unstructured text walls.
 Provide the output strictly in the JSON format detailed below.
 
 JSON Format:
 {
   "title": "Full Topic Title",
-  "content": "A detailed, comprehensive academic notes guide using well-formatted Markdown. Use bold keywords, equations, bullet points, headers, or markdown tables. Write at least 4-5 paragraphs explaining the core principles, architecture, and applications.",
-  "examPoints": "A bulleted markdown list of 5-8 critical points, equations, or concepts that are highly tested in university semesters.",
-  "commonMistakes": "A bulleted markdown list of common conceptual misunderstandings or coding/syntactical mistakes students make on this topic.",
-  "interviewQuestions": "A structured markdown list of 3-5 standard technical interview questions with their detailed answers.",
+  "content": "A detailed academic notes guide formatted in clean, elegant Markdown. Organize the content strictly into the following sections:
+  ### 1. Overview & Core Principles
+  - Clear standard definition.
+  - Core purposes and foundational concepts (using bold key terms).
+  
+  ### 2. Architecture & Working Mechanism
+  - Internal components / block-level breakdown.
+  - Step-by-step workflow of how it works.
+  
+  ### 3. Technical Specifications & Mathematical Foundations
+  - List of important technical specs, algorithms, or equations (written in standard markdown or LaTeX formatting if applicable).
+  
+  ### 4. Comparison & Performance Trade-offs
+  - A clean markdown table comparing advantages, disadvantages, or different variants/approaches.
+  
+  ### 5. Practical Applications & Real-World Use Cases
+  - List of industry use-cases and scenarios where this is deployed.",
+  
+  "examPoints": "A bulleted markdown list of 5-8 critical points, equations, or concepts that are highly tested in university semesters. Format each item as: **[Header Title]**: Concise 1-2 sentence explanation.",
+  
+  "commonMistakes": "A bulleted markdown list of common conceptual misunderstandings or coding/syntactical mistakes students make. Format each item as: **Misconception**: [Description] -> **Correction**: [Rectified concept].",
+  
+  "interviewQuestions": "A structured markdown list of 3-5 standard technical interview questions with their detailed answers. Format each item as: **Q[Number]: [Question Text]?** \\n*Answer*: [Detailed structured answer].",
+  
   "practiceMCQs": [
     {
       "question": "A challenging conceptual MCQ question statement?",
@@ -64,7 +84,8 @@ Ensure there are exactly 5 practice MCQs in the array.
 Make sure the JSON is valid and conforms to this structure.
 `;
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite';
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
   const requestBody = {
     contents: [{ parts: [{ text: prompt }] }],
@@ -92,7 +113,8 @@ Make sure the JSON is valid and conforms to this structure.
     throw new Error('Gemini API returned an empty response.');
   }
 
-  return JSON.parse(rawText);
+  const { safeJsonParse } = require('../services/jsonSanitizer');
+  return safeJsonParse(rawText);
 };
 
 // ─── API HANDLERS ────────────────────────────────────────────────────────────
@@ -261,15 +283,15 @@ const recordView = async (req, res, next) => {
 // 5. Get or generate learning notes for a topic
 const getNotes = async (req, res, next) => {
   try {
-    const { branch, subjectId, topicId } = req.query;
+    const { branch, subjectId, topicId, forceRegenerate } = req.query;
 
     if (!branch || !subjectId || !topicId) {
       return res.status(400).json({ success: false, message: 'Missing branch, subjectId, or topicId parameters.' });
     }
 
-    // 1. Check DB first
+    // 1. Check DB first (unless forceRegenerate is true)
     let notes = await LearningNote.findOne({ branch, subjectId, topicId });
-    if (notes) {
+    if (notes && forceRegenerate !== 'true') {
       return res.status(200).json({ success: true, cached: true, notes });
     }
 
@@ -293,22 +315,34 @@ const getNotes = async (req, res, next) => {
     console.log(`🤖 Generating B.Tech notes for ${branch} -> ${subject.name} -> ${topic.name}...`);
     const aiNotes = await generateNotesViaAI(branch, subject.name, topic.name);
 
-    // 4. Save to DB
-    notes = await LearningNote.create({
-      branch,
-      subjectId,
-      topicId,
-      title: aiNotes.title || topic.name,
-      content: aiNotes.content,
-      examPoints: aiNotes.examPoints,
-      commonMistakes: aiNotes.commonMistakes || '',
-      interviewQuestions: aiNotes.interviewQuestions,
-      practiceMCQs: aiNotes.practiceMCQs || [],
-      readingTime: aiNotes.readingTime || 5,
-      difficulty: aiNotes.difficulty || 'Medium'
-    });
+    // 4. Save/Update to DB
+    if (notes) {
+      notes.title = aiNotes.title || topic.name;
+      notes.content = aiNotes.content;
+      notes.examPoints = aiNotes.examPoints;
+      notes.commonMistakes = aiNotes.commonMistakes || '';
+      notes.interviewQuestions = aiNotes.interviewQuestions;
+      notes.practiceMCQs = aiNotes.practiceMCQs || [];
+      notes.readingTime = aiNotes.readingTime || 5;
+      notes.difficulty = aiNotes.difficulty || 'Medium';
+      await notes.save();
+    } else {
+      notes = await LearningNote.create({
+        branch,
+        subjectId,
+        topicId,
+        title: aiNotes.title || topic.name,
+        content: aiNotes.content,
+        examPoints: aiNotes.examPoints,
+        commonMistakes: aiNotes.commonMistakes || '',
+        interviewQuestions: aiNotes.interviewQuestions,
+        practiceMCQs: aiNotes.practiceMCQs || [],
+        readingTime: aiNotes.readingTime || 5,
+        difficulty: aiNotes.difficulty || 'Medium'
+      });
+    }
 
-    res.status(201).json({
+    res.status(200).json({
       success: true,
       cached: false,
       notes
@@ -397,7 +431,8 @@ Expected JSON Structure:
 }
 `;
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+    const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite';
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
     const requestBody = {
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: {
@@ -418,7 +453,8 @@ Expected JSON Structure:
 
     const resData = await response.json();
     const generatedText = resData.candidates?.[0]?.content?.parts?.[0]?.text;
-    const questionsData = JSON.parse(generatedText).questions;
+    const { safeJsonParse } = require('../services/jsonSanitizer');
+    const questionsData = safeJsonParse(generatedText).questions;
 
     // Create Test document in MongoDB
     const test = await Test.create({
@@ -510,7 +546,8 @@ Guidelines:
       parts: [{ text: question }]
     });
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+    const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite';
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
     const requestBody = {
       contents: formattedContents,
       systemInstruction: { parts: [{ text: systemPrompt }] },

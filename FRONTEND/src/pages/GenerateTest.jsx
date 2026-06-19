@@ -10,6 +10,7 @@ const GenerateTest = () => {
   const navigate = useNavigate();
   const [documents, setDocuments] = useState([]);
   const [docsLoading, setDocsLoading] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
 
   // Form Fields
   const [selectedDocId, setSelectedDocId] = useState('');
@@ -24,6 +25,15 @@ const GenerateTest = () => {
   const [generationProgress, setGenerationProgress] = useState('');
   const [error, setError] = useState(null);
   const [generatedTest, setGeneratedTest] = useState(null);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     const fetchDocs = async () => {
@@ -100,6 +110,37 @@ const GenerateTest = () => {
       setGenerating(false);
     }
   };
+
+  if (isMobile) {
+    return (
+      <div className="space-y-8 animate-fadeIn max-w-md mx-auto py-12 px-4 text-center">
+        <div className="glass-panel border border-brand-border/40 rounded-3xl p-8 shadow-2xl relative overflow-hidden space-y-6">
+          <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-red-500 to-brand-warning"></div>
+          
+          <div className="mx-auto p-4 rounded-full bg-brand-warning/10 border border-brand-warning/20 text-brand-warning shadow-glow w-16 h-16 flex items-center justify-center">
+            <AlertCircle className="w-8 h-8" />
+          </div>
+
+          <div className="space-y-2">
+            <h2 className="text-lg font-extrabold text-brand-textPrimary tracking-tight">
+              Test Generator Disabled on Mobile
+            </h2>
+            <p className="text-xs text-brand-textSecondary leading-relaxed">
+              AI Test Generation is disabled on mobile devices because the screen size is too small for configuring complex parameters and taking exams. 
+              Please switch to a desktop or tablet for the optimal workspace experience.
+            </p>
+          </div>
+
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="w-full py-3 bg-brand-darkBg hover:bg-brand-cardBg border border-brand-border/40 hover:text-brand-textPrimary text-xs font-bold text-brand-textSecondary rounded-xl transition-all active:scale-95 cursor-pointer"
+          >
+            Return to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (docsLoading) {
     return (

@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import PageHeader from '../components/PageHeader';
 import LoadingSpinner from '../components/LoadingSpinner';
+import WarningPopup from '../components/WarningPopup';
 import learningService from '../services/learningService';
 import { branchCatalog } from '../config/learningCatalog';
 import { 
@@ -56,6 +57,7 @@ const LearningNotesViewer = () => {
 
   // Active section tab in viewer: 'notes' | 'exam' | 'interview' | 'mcq'
   const [activeTab, setActiveTab] = useState('notes');
+  const [showMobileWarning, setShowMobileWarning] = useState(false);
 
   useEffect(() => {
     const loadNotesData = async () => {
@@ -144,6 +146,10 @@ const LearningNotesViewer = () => {
   };
 
   const handleGenerateTest = async () => {
+    if (window.innerWidth < 768) {
+      setShowMobileWarning(true);
+      return;
+    }
     try {
       setLoading(true);
       const data = await learningService.generateTest(branch, subjectId, topicId);
@@ -153,6 +159,24 @@ const LearningNotesViewer = () => {
     } catch (err) {
       console.error('Failed to generate test:', err);
       alert('Error compiling assessment. Please try again.');
+      setLoading(false);
+    }
+  };
+
+  const handleRecompileNotes = async () => {
+    if (!window.confirm('Are you sure you want to re-compile these notes? This will recreate the syllabus study guide using the new, highly-structured template.')) return;
+    try {
+      setLoading(true);
+      const res = await learningService.getNotes(branch, subjectId, topicId, true);
+      if (res.success && res.notes) {
+        setNotes(res.notes);
+        setMcqAnswers({});
+        setMcqChecked({});
+      }
+    } catch (err) {
+      console.error('Failed to recompile notes:', err);
+      alert('Error recompiling notes. Please try again.');
+    } finally {
       setLoading(false);
     }
   };
@@ -376,6 +400,18 @@ const LearningNotesViewer = () => {
               <span className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-brand-secondary animate-pulse" />
                 <span>Ask Study Companion</span>
+              </span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+
+            {/* Re-compile Notes */}
+            <button 
+              onClick={handleRecompileNotes}
+              className="w-full flex items-center justify-between p-3 rounded-xl border border-brand-accent/25 bg-brand-accent/5 hover:bg-brand-accent/15 hover:border-brand-accent/35 text-xs text-brand-accent font-bold transition-all active:scale-95 cursor-pointer"
+            >
+              <span className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-brand-accent animate-pulse" />
+                <span>Re-compile Notes</span>
               </span>
               <ChevronRight className="w-3.5 h-3.5" />
             </button>
@@ -704,6 +740,16 @@ const LearningNotesViewer = () => {
           className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-all duration-300"
         ></div>
       )}
+
+      {/* Mobile Screen size Warning Popup */}
+      <WarningPopup 
+        isOpen={showMobileWarning}
+        title="Test Generator Disabled"
+        message="AI Test Generation is disabled on mobile devices as the screen size is too small for configuring complex parameters and taking exams. Please switch to a desktop or tablet device."
+        confirmText="Understood"
+        onConfirm={() => setShowMobileWarning(false)}
+        onCancel={null}
+      />
 
     </div>
   );

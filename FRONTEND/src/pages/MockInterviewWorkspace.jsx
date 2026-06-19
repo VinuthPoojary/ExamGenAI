@@ -41,6 +41,61 @@ const MockInterviewWorkspace = () => {
   const recognitionRef = useRef(null);
   const synthesisUtteranceRef = useRef(null);
 
+  const [voices, setVoices] = useState([]);
+  const [selectedVoiceName, setSelectedVoiceName] = useState('');
+
+  // Load SpeechSynthesis voices and auto-select the best human-sounding voice
+  useEffect(() => {
+    const loadVoices = () => {
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        const availableVoices = window.speechSynthesis.getVoices();
+        
+        // Filter English voices
+        const englishVoices = availableVoices.filter(v => v.lang.toLowerCase().startsWith('en'));
+        setVoices(englishVoices);
+        
+        // Prioritize high-quality/natural/online voices
+        let bestVoice = null;
+        const searchPatterns = [
+          v => v.name.toLowerCase().includes('online') && v.name.toLowerCase().includes('aria'), // Edge Aria Online (Excellent Neural)
+          v => v.name.toLowerCase().includes('online') && v.name.toLowerCase().includes('guy'), // Edge Guy Online
+          v => v.name.toLowerCase().includes('natural') && v.name.toLowerCase().includes('aria'),
+          v => v.name.toLowerCase().includes('google') && v.lang === 'en-US', // Google US English
+          v => v.name.toLowerCase().includes('google') && v.lang.toLowerCase().startsWith('en'), // Other Google English voices
+          v => v.name.toLowerCase().includes('natural') && v.lang.toLowerCase().startsWith('en'), // Any Natural English
+          v => v.name.toLowerCase().includes('premium') && v.lang.toLowerCase().startsWith('en'), // Any Premium English
+          v => v.name.toLowerCase().includes('neural') && v.lang.toLowerCase().startsWith('en'), // Any Neural English
+          v => v.lang === 'en-US' || v.lang === 'en_US', // Default US English
+          v => v.lang.toLowerCase().startsWith('en') // Any English voice
+        ];
+
+        for (const pattern of searchPatterns) {
+          bestVoice = englishVoices.find(pattern);
+          if (bestVoice) break;
+        }
+
+        // If no English voice is found, fallback to first available voice
+        if (!bestVoice && availableVoices.length > 0) {
+          bestVoice = availableVoices[0];
+        }
+
+        if (bestVoice) {
+          setSelectedVoiceName(prev => prev || bestVoice.name);
+        }
+      }
+    };
+
+    loadVoices();
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
+    return () => {
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.onvoiceschanged = null;
+      }
+    };
+  }, []);
+
   useEffect(() => {
     const loadSession = async () => {
       try {
@@ -171,7 +226,16 @@ const MockInterviewWorkspace = () => {
     }
 
     const utterance = new SpeechSynthesisUtterance(currentQuestion.questionText);
-    utterance.lang = 'en-US';
+    
+    // Resolve the native voice object dynamically by name to prevent stale references
+    const currentVoices = window.speechSynthesis.getVoices();
+    const voice = currentVoices.find(v => v.name === selectedVoiceName);
+    
+    if (voice) {
+      utterance.voice = voice;
+    } else {
+      utterance.lang = 'en-US';
+    }
     utterance.rate = 0.95; // Slightly slower for clarity
     
     utterance.onstart = () => {
@@ -441,6 +505,26 @@ const MockInterviewWorkspace = () => {
                 <SkipForward className="w-4 h-4 shrink-0" />
                 <span>Skip Question</span>
               </button>
+
+              {/* Voice Selector */}
+              {voices.length > 0 && (
+                <div className="flex items-center space-x-2 bg-brand-darkBg/40 border border-brand-border/30 rounded-xl px-2.5 py-1.5 text-xs text-brand-textSecondary">
+                  <span className="text-[10px] font-bold uppercase tracking-wider opacity-75">Voice:</span>
+                  <select
+                    value={selectedVoiceName}
+                    onChange={(e) => {
+                      setSelectedVoiceName(e.target.value);
+                    }}
+                    className="bg-transparent text-brand-textPrimary font-semibold focus:outline-none cursor-pointer max-w-[130px] sm:max-w-[160px] md:max-w-[200px] truncate"
+                  >
+                    {voices.map(v => (
+                      <option key={v.name} value={v.name} className="bg-brand-cardBg text-brand-textPrimary text-xs">
+                        {v.name.replace('Microsoft', 'MS').replace('Google', 'Google').replace('English', 'En')}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
           </div>
 
@@ -465,7 +549,7 @@ const MockInterviewWorkspace = () => {
               }}
               placeholder="Your answer will appear here dynamically as you speak, or you can type it directly..."
               disabled={submitting}
-              className="w-full h-40 bg-brand-darkBg/80 border border-brand-border/60 hover:border-brand-border focus:border-brand-accent rounded-xl p-4 text-xs text-brand-textPrimary focus:outline-none transition-all placeholder:text-brand-textSecondary/40 resize-none leading-relaxed"
+              className="w-full h-40 bg-brand-darkBg border border-brand-border/60 hover:border-brand-border focus:border-brand-accent rounded-xl p-4 text-xs text-brand-textPrimary focus:outline-none transition-all placeholder:text-brand-textSecondary/40 resize-none leading-relaxed"
             ></textarea>
 
             {/* Voice Controls & Submission */}

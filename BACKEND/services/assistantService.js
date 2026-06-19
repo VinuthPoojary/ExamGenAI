@@ -3,7 +3,7 @@
  * Invokes Gemini 2.5 Flash to handle interactive study chat
  */
 
-const getAssistantResponse = async (messages, userDocuments = []) => {
+const getAssistantResponse = async (messages, userDocuments = [], ragContext = []) => {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     throw new Error('GEMINI_API_KEY is missing. Please configure it in your environment.');
@@ -14,6 +14,13 @@ const getAssistantResponse = async (messages, userDocuments = []) => {
     ? `The user has the following documents uploaded in their library: ${userDocuments.map(d => d.title).join(', ')}.`
     : `The user has no documents uploaded in their library currently.`;
 
+  // Format RAG retrieved text chunks
+  const ragContextText = ragContext.length > 0
+    ? `Here are semantically relevant context passages retrieved from the user's uploaded documents that match their query. Use this reference material to answer their questions accurately and cite the source document names when appropriate:\n\n${
+        ragContext.map((c, i) => `[Reference ${i+1}] Source: "${c.source}"\nContent:\n${c.text}`).join('\n\n')
+      }`
+    : `No specific text matching this query was retrieved from local notes. Explain the concept based on general academic principles.`;
+
   const systemPrompt = `You are "ExamGen AI Study Assistant", a highly knowledgeable, supportive, and friendly academic tutor and study partner.
 Your mission is to help the user prepare for exams, explain difficult concepts clearly (using analogies and simple terms when helpful), solve academic problems, and quiz them.
 
@@ -22,6 +29,9 @@ Role guidelines:
 2. Be encouraging, patient, and professional.
 3. ${docContext} If the user references or asks questions about these documents, provide assistance on these topics. If they ask to be quizzed, generate 1-3 practice questions on the subject and wait for their answer before grading.
 4. Keep explanations concise but thorough.
+
+Source Materials Reference (RAG):
+${ragContextText}
 
 If the user asks questions unrelated to studying, academics, or test prep, politely steer them back to their studies.`;
 
@@ -35,7 +45,8 @@ If the user asks questions unrelated to studying, academics, or test prep, polit
     };
   });
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite';
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
   const requestBody = {
     contents: formattedContents,

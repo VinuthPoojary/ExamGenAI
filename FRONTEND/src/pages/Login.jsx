@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { Eye, EyeOff, Mail, Lock, AlertCircle } from 'lucide-react';
 
 const Login = () => {
-  const { login, error: authError } = useAuth();
+  const { login, googleLogin, error: authError } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -12,6 +12,47 @@ const Login = () => {
   const [localError, setLocalError] = useState(null);
   
   const navigate = useNavigate();
+
+  const handleGoogleSuccess = async (response) => {
+    setLoading(true);
+    const result = await googleLogin(response.credential);
+    setLoading(false);
+    if (result.success) {
+      navigate('/dashboard');
+    }
+  };
+
+  useEffect(() => {
+    const initializeGoogle = () => {
+      if (window.google) {
+        window.google.accounts.id.initialize({
+          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || "your-google-client-id.apps.googleusercontent.com",
+          callback: handleGoogleSuccess,
+        });
+        window.google.accounts.id.renderButton(
+          document.getElementById('google-signin-button'),
+          {
+            theme: document.documentElement.classList.contains('light') ? 'outline' : 'filled_blue',
+            size: 'large',
+            width: '100%',
+            shape: 'pill',
+          }
+        );
+      }
+    };
+
+    initializeGoogle();
+
+    const script = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
+    if (script) {
+      script.addEventListener('load', initializeGoogle);
+    }
+    return () => {
+      if (script) {
+        script.removeEventListener('load', initializeGoogle);
+      }
+    };
+  }, []);
 
   const handleValidation = () => {
     if (!email || !password) {
@@ -118,6 +159,17 @@ const Login = () => {
           {loading ? 'Authenticating...' : 'Sign In'}
         </button>
       </form>
+
+      <div className="relative flex items-center justify-center my-2">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-brand-border/60"></div>
+        </div>
+        <span className="relative px-3 text-xs uppercase text-brand-textSecondary bg-brand-cardBg">Or continue with</span>
+      </div>
+
+      <div className="flex justify-center w-full">
+        <div id="google-signin-button" className="w-full min-h-[40px] flex justify-center"></div>
+      </div>
 
       <div className="text-center pt-2">
         <p className="text-xs text-brand-textSecondary">

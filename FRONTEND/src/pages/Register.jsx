@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { User, Mail, Lock, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { User, Mail, Lock, AlertCircle, CheckCircle2, KeyRound } from 'lucide-react';
 
 const Register = () => {
-  const { register, error: authError } = useAuth();
+  const { register, sendRegisterOTP, googleLogin, error: authError } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -12,8 +12,65 @@ const Register = () => {
   const [loading, setLoading] = useState(false);
   const [localError, setLocalError] = useState(null);
   const [successMsg, setSuccessMsg] = useState(null);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [timer, setTimer] = useState(0);
 
   const navigate = useNavigate();
+
+  const handleGoogleSuccess = async (response) => {
+    setLoading(true);
+    const result = await googleLogin(response.credential);
+    setLoading(false);
+    if (result.success) {
+      navigate('/dashboard');
+    }
+  };
+
+  useEffect(() => {
+    const initializeGoogle = () => {
+      if (window.google) {
+        window.google.accounts.id.initialize({
+          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || "your-google-client-id.apps.googleusercontent.com",
+          callback: handleGoogleSuccess,
+        });
+        window.google.accounts.id.renderButton(
+          document.getElementById('google-signup-button'),
+          {
+            theme: document.documentElement.classList.contains('light') ? 'outline' : 'filled_blue',
+            size: 'large',
+            width: '100%',
+            shape: 'pill',
+          }
+        );
+      }
+    };
+
+    initializeGoogle();
+
+    const script = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
+    if (script) {
+      script.addEventListener('load', initializeGoogle);
+    }
+    return () => {
+      if (script) {
+        script.removeEventListener('load', initializeGoogle);
+      }
+    };
+  }, []);
+
+  // Timer effect for OTP resend cooldown
+  useEffect(() => {
+    let interval = null;
+    if (timer > 0) {
+      interval = setInterval(() => {
+        setTimer((prev) => prev - 1);
+      }, 1000);
+    } else {
+      clearInterval(interval);
+    }
+    return () => clearInterval(interval);
+  }, [timer]);
 
   const handleValidation = () => {
     if (!name || !email || !password || !confirmPassword) {
@@ -41,21 +98,76 @@ const Register = () => {
     return true;
   };
 
-  const handleSubmit = async (e) => {
+  const handleRequestOTP = async (e) => {
     e.preventDefault();
     if (!handleValidation()) return;
 
     setLoading(true);
+    setLocalError(null);
     setSuccessMsg(null);
-    const result = await register(name, email, password);
+    
+    const result = await sendRegisterOTP(name, email, password);
     setLoading(false);
 
     if (result.success) {
-      setSuccessMsg('Registration successful! Redirecting...');
-      setTimeout(() => {
-        navigate('/login');
-      }, 1500);
+      setOtpSent(true);
+      setTimer(60);
+      setSuccessMsg('Verification code sent to your email.');
+    } else {
+      setLocalError(result.message || 'Failed to send OTP.');
     }
+  };
+
+  const handleVerifyAndRegister = async (e) => {
+    e.preventDefault();
+    if (!otp) {
+      setLocalError('Please enter the 6-digit OTP code.');
+      return;
+    }
+    if (otp.length !== 6) {
+      setLocalError('OTP must be exactly 6 digits.');
+      return;
+    }
+
+    setLoading(true);
+    setLocalError(null);
+    setSuccessMsg(null);
+    
+    const result = await register(name, email, password, otp);
+    setLoading(false);
+
+    if (result.success) {
+      setSuccessMsg('Registration successful! Redirecting to dashboard...');
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 1500);
+    } else {
+      setLocalError(result.message || 'Verification failed.');
+    }
+  };
+
+  const handleResendOTP = async () => {
+    if (timer > 0) return;
+    setLoading(true);
+    setLocalError(null);
+    setSuccessMsg(null);
+    
+    const result = await sendRegisterOTP(name, email, password);
+    setLoading(false);
+    
+    if (result.success) {
+      setTimer(60);
+      setSuccessMsg('A new verification code has been sent.');
+    } else {
+      setLocalError(result.message || 'Failed to send OTP.');
+    }
+  };
+
+  const handleGoBack = () => {
+    setOtpSent(false);
+    setOtp('');
+    setLocalError(null);
+    setSuccessMsg(null);
   };
 
   const activeError = localError || authError;
@@ -81,102 +193,188 @@ const Register = () => {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Name Field */}
-        <div className="space-y-1.5">
-          <label className="block text-xs font-semibold text-brand-textSecondary uppercase tracking-wider">
-            Full Name
-          </label>
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-brand-textSecondary/70">
-              <User className="w-4 h-4" />
+      {!otpSent ? (
+        <>
+          <form onSubmit={handleRequestOTP} className="space-y-4">
+            {/* Name Field */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-brand-textSecondary uppercase tracking-wider">
+                Full Name
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-brand-textSecondary/70">
+                  <User className="w-4 h-4" />
+                </div>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => { setName(e.target.value); setLocalError(null); }}
+                  placeholder="Alex Mercer"
+                  className="w-full bg-brand-darkBg border border-brand-border/60 hover:border-brand-border focus:border-brand-primary rounded-xl pl-10 pr-4 py-3 text-sm text-brand-textPrimary focus:outline-none transition-all placeholder:text-brand-textSecondary/40"
+                />
+              </div>
             </div>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => { setName(e.target.value); setLocalError(null); }}
-              placeholder="Alex Mercer"
-              className="w-full bg-brand-darkBg border border-brand-border/60 hover:border-brand-border focus:border-brand-primary rounded-xl pl-10 pr-4 py-3 text-sm text-brand-textPrimary focus:outline-none transition-all placeholder:text-brand-textSecondary/40"
-            />
-          </div>
-        </div>
 
-        {/* Email Field */}
-        <div className="space-y-1.5">
-          <label className="block text-xs font-semibold text-brand-textSecondary uppercase tracking-wider">
-            Email Address
-          </label>
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-brand-textSecondary/70">
-              <Mail className="w-4 h-4" />
+            {/* Email Field */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-brand-textSecondary uppercase tracking-wider">
+                Email Address
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-brand-textSecondary/70">
+                  <Mail className="w-4 h-4" />
+                </div>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => { setEmail(e.target.value); setLocalError(null); }}
+                  placeholder="name@university.edu"
+                  className="w-full bg-brand-darkBg border border-brand-border/60 hover:border-brand-border focus:border-brand-primary rounded-xl pl-10 pr-4 py-3 text-sm text-brand-textPrimary focus:outline-none transition-all placeholder:text-brand-textSecondary/40"
+                />
+              </div>
             </div>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => { setEmail(e.target.value); setLocalError(null); }}
-              placeholder="name@university.edu"
-              className="w-full bg-brand-darkBg border border-brand-border/60 hover:border-brand-border focus:border-brand-primary rounded-xl pl-10 pr-4 py-3 text-sm text-brand-textPrimary focus:outline-none transition-all placeholder:text-brand-textSecondary/40"
-            />
-          </div>
-        </div>
 
-        {/* Password Fields */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Password Fields */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-brand-textSecondary uppercase tracking-wider">
+                  Password
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-brand-textSecondary/70">
+                    <Lock className="w-4 h-4" />
+                  </div>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => { setPassword(e.target.value); setLocalError(null); }}
+                    placeholder="••••••"
+                    className="w-full bg-brand-darkBg border border-brand-border/60 hover:border-brand-border focus:border-brand-primary rounded-xl pl-10 pr-4 py-3 text-sm text-brand-textPrimary focus:outline-none transition-all placeholder:text-brand-textSecondary/40 font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-brand-textSecondary uppercase tracking-wider">
+                  Confirm Password
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-brand-textSecondary/70">
+                    <Lock className="w-4 h-4" />
+                  </div>
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => { setConfirmPassword(e.target.value); setLocalError(null); }}
+                    placeholder="••••••"
+                    className="w-full bg-brand-darkBg border border-brand-border/60 hover:border-brand-border focus:border-brand-primary rounded-xl pl-10 pr-4 py-3 text-sm text-brand-textPrimary focus:outline-none transition-all placeholder:text-brand-textSecondary/40 font-mono"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Submit */}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full mt-2 py-3.5 px-4 bg-gradient-to-r from-brand-primary to-brand-secondary hover:shadow-glow text-white text-sm font-semibold rounded-xl hover:brightness-110 active:scale-95 transition-all select-none cursor-pointer"
+            >
+              {loading ? 'Sending OTP...' : 'Sign Up'}
+            </button>
+          </form>
+
+          <div className="relative flex items-center justify-center my-2">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-brand-border/60"></div>
+            </div>
+            <span className="relative px-3 text-xs uppercase text-brand-textSecondary bg-brand-cardBg">Or continue with</span>
+          </div>
+
+          <div className="flex justify-center w-full">
+            <div id="google-signup-button" className="w-full min-h-[40px] flex justify-center"></div>
+          </div>
+
+          <div className="text-center pt-2">
+            <p className="text-xs text-brand-textSecondary">
+              Already have an account?{' '}
+              <Link to="/login" className="font-semibold text-brand-accent hover:underline">
+                Sign in
+              </Link>
+            </p>
+          </div>
+        </>
+      ) : (
+        <form onSubmit={handleVerifyAndRegister} className="space-y-5">
+          {/* OTP Instructions Card */}
+          <div className="bg-brand-darkBg/50 border border-brand-border/60 p-4 rounded-xl space-y-2">
+            <p className="text-xs text-brand-textSecondary">
+              We've sent a 6-digit verification code to:
+            </p>
+            <p className="text-sm font-semibold text-brand-primary break-all">
+              {email}
+            </p>
+            <p className="text-xs text-brand-textSecondary/80">
+              Please enter the code below to verify your email and complete registration.
+            </p>
+          </div>
+
+          {/* OTP input field */}
           <div className="space-y-1.5">
             <label className="block text-xs font-semibold text-brand-textSecondary uppercase tracking-wider">
-              Password
+              Verification Code (OTP)
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-brand-textSecondary/70">
-                <Lock className="w-4 h-4" />
+                <KeyRound className="w-4 h-4" />
               </div>
               <input
-                type="password"
-                value={password}
-                onChange={(e) => { setPassword(e.target.value); setLocalError(null); }}
-                placeholder="••••••"
-                className="w-full bg-brand-darkBg border border-brand-border/60 hover:border-brand-border focus:border-brand-primary rounded-xl pl-10 pr-4 py-3 text-sm text-brand-textPrimary focus:outline-none transition-all placeholder:text-brand-textSecondary/40 font-mono"
+                type="text"
+                maxLength="6"
+                value={otp}
+                onChange={(e) => { setOtp(e.target.value.replace(/\D/g, '')); setLocalError(null); }}
+                placeholder="123456"
+                className="w-full bg-brand-darkBg border border-brand-border/60 hover:border-brand-border focus:border-brand-primary rounded-xl pl-10 pr-4 py-3 text-sm text-brand-textPrimary focus:outline-none transition-all placeholder:text-brand-textSecondary/40 text-center tracking-[0.5em] font-bold font-mono"
               />
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <label className="block text-xs font-semibold text-brand-textSecondary uppercase tracking-wider">
-              Confirm Password
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-brand-textSecondary/70">
-                <Lock className="w-4 h-4" />
-              </div>
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => { setConfirmPassword(e.target.value); setLocalError(null); }}
-                placeholder="••••••"
-                className="w-full bg-brand-darkBg border border-brand-border/60 hover:border-brand-border focus:border-brand-primary rounded-xl pl-10 pr-4 py-3 text-sm text-brand-textPrimary focus:outline-none transition-all placeholder:text-brand-textSecondary/40 font-mono"
-              />
-            </div>
+          {/* Resend and Go Back links */}
+          <div className="flex items-center justify-between text-xs gap-3">
+            <button
+              type="button"
+              onClick={handleGoBack}
+              disabled={loading}
+              className="text-brand-textSecondary hover:text-brand-textPrimary text-left font-medium transition-colors cursor-pointer"
+            >
+              ← Edit details
+            </button>
+
+            {timer > 0 ? (
+              <span className="text-brand-textSecondary/80 text-right">
+                Resend code in <strong className="text-brand-textPrimary font-mono">{timer}s</strong>
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={handleResendOTP}
+                disabled={loading}
+                className="text-brand-accent hover:underline font-semibold text-right transition-colors cursor-pointer"
+              >
+                Resend OTP code
+              </button>
+            )}
           </div>
-        </div>
 
-        {/* Submit */}
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full mt-2 py-3.5 px-4 bg-gradient-to-r from-brand-primary to-brand-secondary hover:shadow-glow text-white text-sm font-semibold rounded-xl hover:brightness-110 active:scale-95 transition-all select-none cursor-pointer"
-        >
-          {loading ? 'Registering...' : 'Sign Up'}
-        </button>
-      </form>
-
-      <div className="text-center pt-2">
-        <p className="text-xs text-brand-textSecondary">
-          Already have an account?{' '}
-          <Link to="/login" className="font-semibold text-brand-accent hover:underline">
-            Sign in
-          </Link>
-        </p>
-      </div>
+          {/* Submit */}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3.5 px-4 bg-gradient-to-r from-brand-primary to-brand-secondary hover:shadow-glow text-white text-sm font-semibold rounded-xl hover:brightness-110 active:scale-95 transition-all select-none cursor-pointer"
+          >
+            {loading ? 'Verifying...' : 'Verify & Register'}
+          </button>
+        </form>
+      )}
     </div>
   );
 };

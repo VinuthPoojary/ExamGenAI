@@ -26,9 +26,9 @@ const learningService = {
   },
 
   // Get or compile notes for a topic
-  getNotes: async (branch, subjectId, topicId) => {
+  getNotes: async (branch, subjectId, topicId, forceRegenerate = false) => {
     const response = await API.get(`/learning/notes`, {
-      params: { branch, subjectId, topicId }
+      params: { branch, subjectId, topicId, forceRegenerate }
     });
     return response.data; // { success, cached, notes }
   },

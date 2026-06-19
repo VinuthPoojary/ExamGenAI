@@ -1,4 +1,5 @@
 const Document = require('../models/Document');
+const ragService = require('../services/ragService');
 const { getAssistantResponse } = require('../services/assistantService');
 
 /**
@@ -27,7 +28,29 @@ const chatWithAssistant = async (req, res, next) => {
       subject: doc.subject
     }));
 
-    const reply = await getAssistantResponse(messages, userDocuments);
+    // Perform RAG semantic chunk retrieval based on user's query
+    const lastUserMessage = [...messages].reverse().find(m => m.sender === 'user');
+    const userQuery = lastUserMessage ? lastUserMessage.text : '';
+
+    let ragContext = [];
+    if (userQuery && documents.length > 0) {
+      try {
+        const chunks = await ragService.searchRelevantChunks({
+          userId: req.user.id,
+          queryText: userQuery,
+          limit: 5
+        });
+        
+        ragContext = chunks.map(c => ({
+          source: c.document ? c.document.originalName : 'Unknown Document',
+          text: c.text
+        }));
+      } catch (err) {
+        console.warn("RAG retrieval failed, proceeding with name-only context:", err);
+      }
+    }
+
+    const reply = await getAssistantResponse(messages, userDocuments, ragContext);
 
     res.status(200).json({
       success: true,

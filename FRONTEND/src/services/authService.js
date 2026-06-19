@@ -7,10 +7,22 @@ const authService = {
     return response.data; // { success, token, user }
   },
 
-  // Register student
-  register: async (name, email, password) => {
-    const response = await API.post('/auth/register', { name, email, password });
+  // Google login
+  googleLogin: async (token) => {
+    const response = await API.post('/auth/google', { token });
     return response.data; // { success, token, user }
+  },
+
+  // Register student
+  register: async (name, email, password, otp) => {
+    const response = await API.post('/auth/register', { name, email, password, otp });
+    return response.data; // { success, token, user }
+  },
+
+  // Send registration OTP
+  sendRegisterOTP: async (name, email, password) => {
+    const response = await API.post('/auth/send-register-otp', { name, email, password });
+    return response.data; // { success, message }
   },
 
   // Send password reset OTP

@@ -1,6 +1,7 @@
 const Test = require('../models/Test');
 const Question = require('../models/Question');
 const Document = require('../models/Document');
+const DocumentChunk = require('../models/DocumentChunk');
 const { generateQuestions } = require('../services/questionGenerator');
 const { sendNotification } = require('../services/notificationService');
 
@@ -70,7 +71,26 @@ const generateTest = async (req, res, next) => {
       }
       docSubject = document.subject;
       docName = document.originalName;
-      contextText = document.extractedText || '';
+      
+      // Query document chunks, sort by chunkIndex
+      const chunks = await DocumentChunk.find({ document: documentId }).sort({ chunkIndex: 1 });
+      if (chunks.length > 0) {
+        let selectedChunks = [];
+        if (chunks.length <= 15) {
+          selectedChunks = chunks;
+        } else {
+          // Select 15 chunks evenly distributed across the document
+          const step = chunks.length / 15;
+          for (let i = 0; i < 15; i++) {
+            const idx = Math.floor(i * step);
+            selectedChunks.push(chunks[idx]);
+          }
+        }
+        contextText = selectedChunks.map(c => c.text).join('\n\n---\n\n');
+      } else {
+        // Fallback to full extracted text if chunks are not indexed yet
+        contextText = document.extractedText || '';
+      }
     } else {
       docSubject = subject || 'General';
       docName = `Manual Topic: ${docSubject}`;

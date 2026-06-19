@@ -83,14 +83,45 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const register = async (name, email, password) => {
+  const googleLogin = async (googleToken) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await authService.register(name, email, password);
-      if (data.success) {
+      const data = await authService.googleLogin(googleToken);
+      if (data.success && data.token) {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        setToken(data.token);
+        setUser(data.user);
         setLoading(false);
         return { success: true };
+      } else {
+        setError(data.message || 'Google login failed');
+        setLoading(false);
+        return { success: false, message: data.message };
+      }
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Google authentication failed';
+      setError(msg);
+      setLoading(false);
+      return { success: false, message: msg };
+    }
+  };
+
+  const register = async (name, email, password, otp) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await authService.register(name, email, password, otp);
+      if (data.success) {
+        if (data.token) {
+          localStorage.setItem('token', data.token);
+          localStorage.setItem('user', JSON.stringify(data.user));
+          setToken(data.token);
+          setUser(data.user);
+        }
+        setLoading(false);
+        return { success: true, autoLoggedIn: !!data.token };
       } else {
         setError(data.message || 'Registration failed');
         setLoading(false);
@@ -98,6 +129,21 @@ export const AuthProvider = ({ children }) => {
       }
     } catch (err) {
       const msg = err.response?.data?.message || 'Registration failed';
+      setError(msg);
+      setLoading(false);
+      return { success: false, message: msg };
+    }
+  };
+
+  const sendRegisterOTP = async (name, email, password) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await authService.sendRegisterOTP(name, email, password);
+      setLoading(false);
+      return { success: data.success, message: data.message };
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Failed to send OTP';
       setError(msg);
       setLoading(false);
       return { success: false, message: msg };
@@ -170,7 +216,9 @@ export const AuthProvider = ({ children }) => {
         loading,
         error,
         login,
+        googleLogin,
         register,
+        sendRegisterOTP,
         logout: handleLogout,
         updateProfile,
         changePassword,

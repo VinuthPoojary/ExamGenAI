@@ -9,7 +9,8 @@ const callGemini = async (prompt, systemInstruction = '') => {
     throw new Error('GEMINI_API_KEY is not configured in environment variables.');
   }
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite';
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   
   const requestBody = {
     contents: [{ parts: [{ text: prompt }] }],
@@ -46,7 +47,8 @@ const callGemini = async (prompt, systemInstruction = '') => {
     cleanedText = cleanedText.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
   }
 
-  return JSON.parse(cleanedText);
+  const { safeJsonParse } = require('../services/jsonSanitizer');
+  return safeJsonParse(cleanedText);
 };
 
 // ─── API HANDLERS ────────────────────────────────────────────────────────────

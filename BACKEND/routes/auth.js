@@ -1,12 +1,12 @@
 const express = require('express');
 const { body } = require('express-validator');
-const { register, login, getMe, forgotPassword, resetPassword } = require('../controllers/authController');
+const { register, login, getMe, forgotPassword, resetPassword, googleLogin, sendRegisterOTP } = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
 
 const router = express.Router();
 
 // Validation rules
-const registerValidation = [
+const sendRegisterOtpValidation = [
   body('name')
     .trim()
     .notEmpty().withMessage('Name is required')
@@ -16,6 +16,12 @@ const registerValidation = [
     .isEmail().withMessage('Please enter a valid email'),
   body('password')
     .isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+];
+
+const registerValidation = [
+  ...sendRegisterOtpValidation,
+  body('otp')
+    .isLength({ min: 6, max: 6 }).withMessage('OTP must be a 6-digit number'),
 ];
 
 const loginValidation = [
@@ -34,8 +40,10 @@ const resetPasswordValidation = [
 ];
 
 // Routes
+router.post('/send-register-otp', sendRegisterOtpValidation, sendRegisterOTP);
 router.post('/register',        registerValidation,       register);
 router.post('/login',           loginValidation,          login);
+router.post('/google',                                    googleLogin);
 router.post('/forgot-password', forgotPasswordValidation, forgotPassword);
 router.post('/reset-password',  resetPasswordValidation,  resetPassword);
 router.get('/me',               protect,                  getMe);
