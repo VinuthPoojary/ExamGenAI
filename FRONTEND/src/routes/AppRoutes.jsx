@@ -47,7 +47,7 @@ const AppRoutes = () => {
         <Route element={<DashboardLayout />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/upload-pdf" element={<UploadPDF />} />
-          <Route path="/generate-test" element={<GenerateTest />} />
+          <Route path="/generate-test/:type" element={<GenerateTest />} />
           <Route path="/assistant" element={<Assistant />} />
           <Route path="/mock-interview" element={<MockInterviewHub />} />
           <Route path="/mock-interview/session/:id" element={<MockInterviewWorkspace />} />

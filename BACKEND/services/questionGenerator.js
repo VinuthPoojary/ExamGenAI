@@ -12,16 +12,26 @@ const generateQuestions = async (contextText, subject, difficulty, config) => {
   // Cap context text to avoid overloading context limits
   const contextCleaned = contextText ? contextText.substring(0, 40000) : '';
 
+  const dsaContext = (config.dsaCount > 0) ? `
+For the DSA Coding Challenges:
+- Topic: ${config.topic || 'Mixed'}
+- Style/Pattern inspiration: ${config.questionSource || 'AI Generated'} (If LeetCode/HackerRank inspired, generate original interview-quality questions matching their complexity and standard coding patterns, but do NOT copy any question name or details directly).
+- Make sure the difficulty matches: ${difficulty}.
+` : '';
+
   const prompt = `
 You are an expert academic examiner. Your task is to generate high-fidelity, challenging exam questions based on the following subject domain and source material notes.
 
 Subject: ${subject}
 Difficulty Level: ${difficulty}
+${dsaContext}
 Source Material Context Notes:
 ${contextCleaned || 'No reference file provided. Generate general knowledge questions based entirely on the subject area.'}
 
 Generate exactly the following quantities of questions:
 - MCQ (Multiple Choice): ${config.mcqCount || 0}
+- DSA Coding Challenge: ${config.dsaCount || 0}
+- Aptitude MCQ: ${config.aptitudeCount || 0}
 - Short Answer: ${config.shortCount || 0}
 - Long Answer: ${config.longCount || 0}
 - Scenario-Based (Case Study with sub-questions): ${config.scenarioCount || 0}
@@ -36,6 +46,7 @@ Expected JSON Structure:
     // FOR MCQ QUESTIONS:
     {
       "type": "mcq",
+      "section": "mcq",
       "questionText": "Question statement here",
       "options": {
         "A": "Option A text",
@@ -48,9 +59,76 @@ Expected JSON Structure:
       "maxMarks": 2,
       "topic": "Subtopic name"
     },
+    // FOR APTITUDE QUESTIONS (formatted as MCQ):
+    {
+      "type": "aptitude",
+      "section": "aptitude",
+      "questionText": "Aptitude question statement (e.g. math word problem, logical puzzle, or verbal reason)",
+      "options": {
+        "A": "Option A text",
+        "B": "Option B text",
+        "C": "Option C text",
+        "D": "Option D text"
+      },
+      "correctAnswer": "B", // Must be A, B, C, or D
+      "explanation": "Detailed step-by-step reasoning or mathematical explanation",
+      "maxMarks": 2,
+      "topic": "Aptitude Subtopic (e.g. Probability, Ratios, Logic)"
+    },
+    // FOR DSA QUESTIONS (CODING CHALLENGES):
+    {
+      "type": "dsa",
+      "section": "dsa",
+      "questionTitle": "Problem Title (e.g., Grid Path Minimization)",
+      "questionText": "Write a detailed and clear programming problem statement here.",
+      "constraints": "Write execution constraints, bounds, or sizes here (e.g., '1 <= nums.length <= 10^5', '0 <= nums[i] <= 1000')",
+      "inputFormat": "Describe parameters passed to the function (e.g., 'An integer array nums representing prices')",
+      "outputFormat": "Describe return value type and meaning (e.g., 'Return the minimum cost to complete the transaction')",
+      "sampleInput": "Textual representation of example input arguments, e.g., 'nums = [4, 2, 3]'",
+      "sampleOutput": "Textual representation of example return value, e.g., '5'",
+      "explanation": "Step-by-step explanation explaining why sampleInput produces sampleOutput.",
+      "javaSignature": "public int solve(int[] nums) {\\n    // Write your code here\\n}", // Standard Java starter signature stub matching constraints
+      "starterCode": "function solve(nums) {\\n  // Write your JavaScript code here\\n  return 0;\\n}", // Valid Javascript starter function stub that can run in VM sandbox
+      "starterTemplates": {
+        "javascript": "function solve(nums) {\\n  // Write your JavaScript code here\\n  return 0;\\n}",
+        "python": "def solve(nums):\\n    # Write your Python code here\\n    pass",
+        "java": "public class Solution {\\n    public int solve(int[] nums) {\\n        // Write your Java code here\\n        return 0;\\n    }\\n}",
+        "cpp": "#include <iostream>\\n#include <vector>\\n#include <string>\\n#include <algorithm>\\n\\nusing namespace std;\\n\\nclass Solution {\\npublic:\\n    int solve(vector<int>& nums) {\\n        // Write your C++ code here\\n        return 0;\\n    }\\n};",
+        "c": "#include <stdio.h>\\n#include <stdlib.h>\\n#include <string.h>\\n#include <stdbool.h>\\n\\nint solve(int* nums, int numsSize) {\\n    // Write your C code here\\n    return 0;\\n}"
+      },
+      "expectedTimeComplexity": "O(N)",
+      "expectedSpaceComplexity": "O(1)",
+      "testCases": [
+        {
+          "input": [[4, 2, 3]], // Array of argument lists for JavaScript function solve. Wrap argument list as: [ [arg1] ]
+          "expected": 5, // Expected return value matching JavaScript return
+          "functionName": "solve" // Must match starterCode function name
+        },
+        {
+          "input": [[1]],
+          "expected": 1,
+          "functionName": "solve"
+        }
+      ],
+      "hiddenTestCases": [ // Tricky, larger, or edge test cases used only for grading evaluation
+        {
+          "input": [[10, 5, 20, 15]],
+          "expected": 35,
+          "functionName": "solve"
+        },
+        {
+          "input": [[0, 0, 0]],
+          "expected": 0,
+          "functionName": "solve"
+        }
+      ],
+      "maxMarks": 10,
+      "topic": "Arrays" // Specific DSA topic of the challenge
+    },
     // FOR SHORT ANSWER QUESTIONS:
     {
       "type": "short",
+      "section": "mcq", // fallback
       "questionText": "Question statement here",
       "modelAnswer": "Brief reference answer here",
       "maxMarks": 5,
@@ -59,6 +137,7 @@ Expected JSON Structure:
     // FOR LONG ANSWER QUESTIONS:
     {
       "type": "long",
+      "section": "mcq", // fallback
       "questionText": "Question statement here",
       "modelAnswer": "Detailed reference answer here",
       "maxMarks": 10,
@@ -67,6 +146,7 @@ Expected JSON Structure:
     // FOR SCENARIO QUESTIONS:
     {
       "type": "scenario",
+      "section": "mcq", // fallback
       "questionText": "A detailed context/case-study narrative paragraph setting up the scenario.",
       "topic": "Subtopic name",
       "subQuestions": [
@@ -82,12 +162,6 @@ Expected JSON Structure:
           "correctAnswer": "B",
           "explanation": "Explanation here",
           "maxMarks": 3
-        },
-        {
-          "type": "short",
-          "questionText": "Sub-question statement related to the scenario",
-          "modelAnswer": "Brief reference answer here",
-          "maxMarks": 5
         }
       ]
     }

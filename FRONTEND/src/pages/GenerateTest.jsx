@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import PageHeader from '../components/PageHeader';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { BookOpen, Sparkles, AlertCircle, FileText, ArrowRight, CheckCircle2 } from 'lucide-react';
@@ -8,23 +8,61 @@ import testService from '../services/testService';
 
 const GenerateTest = () => {
   const navigate = useNavigate();
+  const { type } = useParams();
   const [documents, setDocuments] = useState([]);
   const [docsLoading, setDocsLoading] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
+
+  // Active parameter configuration
+  const configMap = {
+    mcq: {
+      title: 'Generate General MCQ Exam',
+      label: 'Number of Multiple Choice Questions',
+      min: 1,
+      max: 15,
+      defaultVal: 5
+    },
+    aptitude: {
+      title: 'Generate Aptitude Exam',
+      label: 'Number of Aptitude MCQs',
+      min: 1,
+      max: 15,
+      defaultVal: 5
+    },
+    dsa: {
+      title: 'Generate DSA Coding Exam',
+      label: 'Number of Coding Challenges',
+      min: 1,
+      max: 20,
+      defaultVal: 2
+    }
+  };
+
+  const activeType = ['mcq', 'aptitude', 'dsa'].includes(type) ? type : 'mcq';
+  const activeConfig = configMap[activeType];
 
   // Form Fields
   const [selectedDocId, setSelectedDocId] = useState('');
   const [subject, setSubject] = useState('');
   const [difficulty, setDifficulty] = useState('Medium');
-  const [mcqCount, setMcqCount] = useState(3);
-  const [shortCount, setShortCount] = useState(2);
-  const [longCount, setLongCount] = useState(1);
-  const [scenarioCount, setScenarioCount] = useState(1);
+  const [questionCount, setQuestionCount] = useState(activeConfig.defaultVal);
+
+  // DSA Specialty Fields
+  const [dsaTopic, setDsaTopic] = useState('Mixed');
+  const [dsaSource, setDsaSource] = useState('AI Generated');
+  const [dsaTimeLimit, setDsaTimeLimit] = useState('45 Minutes');
 
   const [generating, setGenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState('');
   const [error, setError] = useState(null);
   const [generatedTest, setGeneratedTest] = useState(null);
+
+  // Sync question count default on type changes
+  useEffect(() => {
+    setQuestionCount(activeConfig.defaultVal);
+    setError(null);
+    setGeneratedTest(null);
+  }, [type]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -64,8 +102,18 @@ const GenerateTest = () => {
 
   const handleGenerate = async (e) => {
     e.preventDefault();
-    if (!subject) {
+
+    // For DSA, subject is determined by dsaTopic
+    const finalSubject = activeType === 'dsa' ? (dsaTopic === 'Mixed' ? 'Data Structures & Algorithms' : dsaTopic) : subject;
+
+    if (!finalSubject && activeType !== 'dsa') {
       setError('Please specify a subject domain.');
+      return;
+    }
+
+    const countNum = Number(questionCount);
+    if (isNaN(countNum) || countNum < activeConfig.min || countNum > activeConfig.max) {
+      setError(`Please specify a question quantity between ${activeConfig.min} and ${activeConfig.max}.`);
       return;
     }
 
@@ -74,7 +122,14 @@ const GenerateTest = () => {
     setGeneratedTest(null);
 
     // Simulate RAG pipeline processing steps
-    const steps = [
+    const steps = activeType === 'dsa' ? [
+      'Initializing DSA Question Compilation...',
+      'Formulating original coding interview problem...',
+      'Designing constraints and complex arguments...',
+      'Writing Java execution signature...',
+      'Assembling visible and hidden test cases...',
+      'AI Question Compilation complete!'
+    ] : [
       'Locating document nodes in vector database...',
       'Retrieving relevant topic summaries...',
       'Synthesizing contextual evaluation criteria...',
@@ -90,13 +145,19 @@ const GenerateTest = () => {
 
     try {
       const data = await testService.generateTest({
-        documentId: selectedDocId || null,
-        subject,
+        documentId: activeType === 'dsa' ? null : (selectedDocId || null),
+        subject: finalSubject,
         difficulty,
-        mcqCount: Number(mcqCount),
-        shortCount: Number(shortCount),
-        longCount: Number(longCount),
-        scenarioCount: Number(scenarioCount)
+        mcqCount: activeType === 'mcq' ? Number(questionCount) : 0,
+        dsaCount: activeType === 'dsa' ? Number(questionCount) : 0,
+        aptitudeCount: activeType === 'aptitude' ? Number(questionCount) : 0,
+        shortCount: 0,
+        longCount: 0,
+        scenarioCount: 0,
+        // DSA specialized fields
+        topic: activeType === 'dsa' ? dsaTopic : undefined,
+        questionSource: activeType === 'dsa' ? dsaSource : undefined,
+        timeLimit: activeType === 'dsa' ? dsaTimeLimit : undefined
       });
 
       if (data.success) {
@@ -116,7 +177,7 @@ const GenerateTest = () => {
       <div className="space-y-8 animate-fadeIn max-w-md mx-auto py-12 px-4 text-center">
         <div className="glass-panel border border-brand-border/40 rounded-3xl p-8 shadow-2xl relative overflow-hidden space-y-6">
           <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-red-500 to-brand-warning"></div>
-          
+
           <div className="mx-auto p-4 rounded-full bg-brand-warning/10 border border-brand-warning/20 text-brand-warning shadow-glow w-16 h-16 flex items-center justify-center">
             <AlertCircle className="w-8 h-8" />
           </div>
@@ -126,7 +187,7 @@ const GenerateTest = () => {
               Test Generator Disabled on Mobile
             </h2>
             <p className="text-xs text-brand-textSecondary leading-relaxed">
-              AI Test Generation is disabled on mobile devices because the screen size is too small for configuring complex parameters and taking exams. 
+              AI Test Generation is disabled on mobile devices because the screen size is too small for configuring complex parameters and taking exams.
               Please switch to a desktop or tablet for the optimal workspace experience.
             </p>
           </div>
@@ -154,9 +215,9 @@ const GenerateTest = () => {
 
   return (
     <div className="space-y-8 animate-fadeIn max-w-4xl mx-auto">
-      <PageHeader 
-        title="AI Test Generator" 
-        subtitle="Extract knowledge from your documents to compile personalized exams." 
+      <PageHeader
+        title={activeConfig.title}
+        subtitle={activeType === 'dsa' ? 'Practice coding interviews with AI-generated DSA problems inspired by real technical interviews.' : 'Extract knowledge from your documents to compile customized exams.'}
       >
         <button
           onClick={() => navigate('/dashboard')}
@@ -178,121 +239,189 @@ const GenerateTest = () => {
         <form onSubmit={handleGenerate} className="glass-panel border border-brand-border/40 rounded-2xl p-6 md:p-8 space-y-6 relative">
           <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-brand-primary via-brand-secondary to-brand-accent"></div>
 
-          {/* Document Select */}
-          <div className="space-y-2">
-            <label className="block text-xs font-semibold text-brand-textSecondary uppercase tracking-wider">
-              Source Material
-            </label>
-            {documents.length === 0 ? (
-              <div className="p-4 rounded-xl border border-brand-border/40 bg-brand-darkBg/30 text-xs text-brand-textSecondary flex justify-between items-center">
-                <span>No PDF uploaded yet. Standard general test templates will be generated.</span>
-                <span onClick={() => navigate('/upload-pdf')} className="text-brand-accent cursor-pointer hover:underline">Upload PDF</span>
-              </div>
-            ) : (
-              <select
-                value={selectedDocId}
-                onChange={(e) => handleDocChange(e.target.value)}
-                className="w-full bg-brand-darkBg border border-brand-border/60 hover:border-brand-border focus:border-brand-primary rounded-xl px-4 py-3 text-sm text-brand-textPrimary focus:outline-none transition-all"
-              >
-                <option value="">-- Manual Topic Input --</option>
-                {documents.map(d => (
-                  <option key={d._id} value={d._id}>{d.originalName} ({d.subject})</option>
-                ))}
-              </select>
-            )}
-          </div>
-
-          {/* Subject & Difficulty */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Document Select - Hidden for DSA */}
+          {activeType !== 'dsa' && (
             <div className="space-y-2">
               <label className="block text-xs font-semibold text-brand-textSecondary uppercase tracking-wider">
-                Exam Subject Domain
+                Source Material
               </label>
-              <input
-                type="text"
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                placeholder="e.g. Core OOP Principles"
-                className="w-full bg-brand-darkBg border border-brand-border/60 hover:border-brand-border focus:border-brand-primary rounded-xl px-4 py-3 text-sm text-brand-textPrimary focus:outline-none transition-all"
-              />
+              {documents.length === 0 ? (
+                <div className="p-4 rounded-xl border border-brand-border/40 bg-brand-darkBg/30 text-xs text-brand-textSecondary flex justify-between items-center">
+                  <span>No PDF uploaded yet. Standard general test templates will be generated.</span>
+                  <span onClick={() => navigate('/upload-pdf')} className="text-brand-accent cursor-pointer hover:underline">Upload PDF</span>
+                </div>
+              ) : (
+                <select
+                  value={selectedDocId}
+                  onChange={(e) => handleDocChange(e.target.value)}
+                  className="w-full bg-brand-darkBg border border-brand-border/60 hover:border-brand-border focus:border-brand-primary rounded-xl px-4 py-3 text-sm text-brand-textPrimary focus:outline-none transition-all"
+                >
+                  <option value="">-- Manual Topic Input --</option>
+                  {documents.map(d => (
+                    <option key={d._id} value={d._id}>{d.originalName} ({d.subject})</option>
+                  ))}
+                </select>
+              )}
             </div>
+          )}
 
-            <div className="space-y-2">
-              <label className="block text-xs font-semibold text-brand-textSecondary uppercase tracking-wider">
-                Difficulty Level
-              </label>
-              <div className="grid grid-cols-3 gap-2">
-                {difficulties.map((diff) => (
-                  <button
-                    key={diff}
-                    type="button"
-                    onClick={() => setDifficulty(diff)}
-                    className={`py-3 px-3 rounded-xl border text-xs font-bold transition-all ${
-                      difficulty === diff
+          {activeType === 'dsa' ? (
+            /* DSA Specialized Fields */
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Topic Dropdown */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-semibold text-brand-textSecondary uppercase tracking-wider">
+                    DSA Topic
+                  </label>
+                  <select
+                    value={dsaTopic}
+                    onChange={(e) => setDsaTopic(e.target.value)}
+                    className="w-full bg-brand-darkBg border border-brand-border/60 hover:border-brand-border focus:border-brand-primary rounded-xl px-4 py-3 text-sm text-brand-textPrimary focus:outline-none transition-all"
+                  >
+                    {[
+                      'Mixed', 'Arrays', 'Strings', 'Linked List', 'Stack', 'Queue',
+                      'HashMap', 'HashSet', 'Trees', 'Binary Search Tree',
+                      'Heap / Priority Queue', 'Graph', 'Dynamic Programming',
+                      'Greedy', 'Backtracking', 'Sliding Window', 'Binary Search',
+                      'Recursion', 'Bit Manipulation', 'Trie'
+                    ].map(t => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Difficulty Level Segmented Buttons */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-semibold text-brand-textSecondary uppercase tracking-wider">
+                    Difficulty Level
+                  </label>
+                  <div className="flex bg-brand-darkBg/60 border border-brand-border/30 rounded-xl p-1 w-full">
+                    {difficulties.map((diff) => (
+                      <button
+                        key={diff}
+                        type="button"
+                        onClick={() => setDifficulty(diff)}
+                        className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all ${difficulty === diff
+                          ? 'bg-brand-primary text-white shadow-glow'
+                          : 'text-brand-textSecondary hover:text-brand-textPrimary'
+                          }`}
+                      >
+                        {diff}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Question Source Radio Buttons */}
+                <div className="space-y-2.5">
+                  <label className="block text-xs font-semibold text-brand-textSecondary uppercase tracking-wider">
+                    Question Source
+                  </label>
+                  <div className="space-y-2">
+                    {[
+                      { value: 'AI Generated', label: 'AI Generated ⭐ (Recommended)' },
+                      { value: 'Inspired by LeetCode', label: 'Inspired by LeetCode' },
+                      { value: 'Inspired by HackerRank', label: 'Inspired by HackerRank' },
+                      { value: 'Mixed Interview Questions', label: 'Mixed Interview Questions' }
+                    ].map((src) => (
+                      <label
+                        key={src.value}
+                        className={`flex items-center space-x-3 p-3 rounded-xl border cursor-pointer transition-all ${dsaSource === src.value
+                          ? 'border-brand-primary/60 bg-brand-primary/5 text-brand-textPrimary'
+                          : 'border-brand-border/30 hover:border-brand-border/60 text-brand-textSecondary'
+                          }`}
+                      >
+                        <input
+                          type="radio"
+                          name="dsaSource"
+                          value={src.value}
+                          checked={dsaSource === src.value}
+                          onChange={(e) => setDsaSource(e.target.value)}
+                          className="text-brand-primary focus:ring-brand-primary/50"
+                        />
+                        <span className="text-xs font-medium">{src.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Time Limit Dropdown */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-semibold text-brand-textSecondary uppercase tracking-wider">
+                    Time Limit
+                  </label>
+                  <select
+                    value={dsaTimeLimit}
+                    onChange={(e) => setDsaTimeLimit(e.target.value)}
+                    className="w-full bg-brand-darkBg border border-brand-border/60 hover:border-brand-border focus:border-brand-primary rounded-xl px-4 py-3 text-sm text-brand-textPrimary focus:outline-none transition-all font-mono"
+                  >
+                    {[
+                      'No Limit', '15 Minutes', '30 Minutes', '45 Minutes',
+                      '60 Minutes', '90 Minutes', '120 Minutes'
+                    ].map(limit => (
+                      <option key={limit} value={limit}>{limit}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* MCQ / Aptitude Form Layout */
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-brand-textSecondary uppercase tracking-wider">
+                  Exam Subject Domain
+                </label>
+                <input
+                  type="text"
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  placeholder="e.g. Core OOP Principles"
+                  className="w-full bg-brand-darkBg border border-brand-border/60 hover:border-brand-border focus:border-brand-primary rounded-xl px-4 py-3 text-sm text-brand-textPrimary focus:outline-none transition-all"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-brand-textSecondary uppercase tracking-wider">
+                  Difficulty Level
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {difficulties.map((diff) => (
+                    <button
+                      key={diff}
+                      type="button"
+                      onClick={() => setDifficulty(diff)}
+                      className={`py-3 px-3 rounded-xl border text-xs font-bold transition-all ${difficulty === diff
                         ? 'bg-brand-primary/10 border-brand-primary text-brand-textPrimary shadow-glow'
                         : 'bg-brand-cardBg border-brand-border/30 text-brand-textSecondary hover:border-brand-primary/30 hover:text-brand-textPrimary'
-                    }`}
-                  >
-                    {diff}
-                  </button>
-                ))}
+                        }`}
+                    >
+                      {diff}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
-          {/* Question Counts Grid */}
+          {/* Question Counts Configuration */}
           <div className="space-y-4">
             <label className="block text-xs font-semibold text-brand-textSecondary uppercase tracking-wider">
-              Question Distribution
+              {activeConfig.label}
             </label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <div className="p-4 rounded-xl bg-brand-darkBg border border-brand-border/30 space-y-2">
-                <span className="text-[10px] font-bold text-brand-textSecondary uppercase block">Multiple Choice</span>
-                <input
-                  type="number"
-                  min="0"
-                  max="10"
-                  value={mcqCount}
-                  onChange={(e) => setMcqCount(e.target.value)}
-                  className="w-full bg-brand-cardBg border border-brand-border/60 rounded-lg p-2 text-center text-sm text-brand-textPrimary focus:outline-none focus:border-brand-primary"
-                />
-              </div>
-
-              <div className="p-4 rounded-xl bg-brand-darkBg border border-brand-border/30 space-y-2">
-                <span className="text-[10px] font-bold text-brand-textSecondary uppercase block">Short Answer</span>
-                <input
-                  type="number"
-                  min="0"
-                  max="10"
-                  value={shortCount}
-                  onChange={(e) => setShortCount(e.target.value)}
-                  className="w-full bg-brand-cardBg border border-brand-border/60 rounded-lg p-2 text-center text-sm text-brand-textPrimary focus:outline-none focus:border-brand-primary"
-                />
-              </div>
-
-              <div className="p-4 rounded-xl bg-brand-darkBg border border-brand-border/30 space-y-2">
-                <span className="text-[10px] font-bold text-brand-textSecondary uppercase block">Long Answer</span>
-                <input
-                  type="number"
-                  min="0"
-                  max="5"
-                  value={longCount}
-                  onChange={(e) => setLongCount(e.target.value)}
-                  className="w-full bg-brand-cardBg border border-brand-border/60 rounded-lg p-2 text-center text-sm text-brand-textPrimary focus:outline-none focus:border-brand-primary"
-                />
-              </div>
-
-              <div className="p-4 rounded-xl bg-brand-darkBg border border-brand-border/30 space-y-2">
-                <span className="text-[10px] font-bold text-brand-textSecondary uppercase block">Scenario Based</span>
-                <input
-                  type="number"
-                  min="0"
-                  max="3"
-                  value={scenarioCount}
-                  onChange={(e) => setScenarioCount(e.target.value)}
-                  className="w-full bg-brand-cardBg border border-brand-border/60 rounded-lg p-2 text-center text-sm text-brand-textPrimary focus:outline-none focus:border-brand-primary"
-                />
-              </div>
+            <div className="p-4 rounded-xl bg-brand-darkBg border border-brand-border/30 max-w-xs space-y-2">
+              <span className="text-[10px] font-bold text-brand-textSecondary uppercase block">Question Quantity</span>
+              <input
+                type="number"
+                min={activeConfig.min}
+                max={activeConfig.max}
+                value={questionCount}
+                onChange={(e) => setQuestionCount(e.target.value)}
+                className="w-full bg-brand-cardBg border border-brand-border/60 rounded-lg p-2 text-center text-sm text-brand-textPrimary focus:outline-none focus:border-brand-primary"
+              />
             </div>
           </div>
 
@@ -345,7 +474,9 @@ const GenerateTest = () => {
             <div className="p-3 bg-brand-darkBg border border-brand-border/20 rounded-xl">
               <span className="text-[10px] text-brand-textSecondary font-bold uppercase">Structure</span>
               <p className="text-xs font-bold text-brand-textPrimary mt-1">
-                {(generatedTest.questions.mcq?.length || 0)} MCQ | {(generatedTest.questions.short?.length || 0)} Short
+                {activeType === 'mcq' && `${generatedTest.questions.mcq?.length || 0} MCQ`}
+                {activeType === 'dsa' && `${generatedTest.questions.dsa?.length || 0} DSA`}
+                {activeType === 'aptitude' && `${generatedTest.questions.aptitude?.length || 0} Aptitude`}
               </p>
             </div>
           </div>

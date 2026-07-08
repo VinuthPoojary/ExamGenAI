@@ -33,9 +33,11 @@ const TestSchema = new mongoose.Schema(
     },
     // Question count configuration chosen by student
     config: {
-      mcqCount:      { type: Number, default: 10 },
-      shortCount:    { type: Number, default: 5 },
-      longCount:     { type: Number, default: 2 },
+      mcqCount: { type: Number, default: 10 },
+      dsaCount: { type: Number, default: 0 },
+      aptitudeCount: { type: Number, default: 0 },
+      shortCount: { type: Number, default: 5 },
+      longCount: { type: Number, default: 2 },
       scenarioCount: { type: Number, default: 1 },
     },
     totalMarks: {

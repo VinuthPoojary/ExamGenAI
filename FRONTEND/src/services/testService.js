@@ -88,11 +88,11 @@ const saveLocalStorageTests = (tests) => {
 
 const testService = {
   // Generate a test using Document context
-  generateTest: async ({ documentId, subject, difficulty, mcqCount, shortCount, longCount, scenarioCount }) => {
+  generateTest: async ({ documentId, subject, difficulty, mcqCount, dsaCount, aptitudeCount, shortCount, longCount, scenarioCount, topic, questionSource, timeLimit }) => {
     try {
       // Try backend first
       const response = await API.post('/tests/generate', {
-        documentId, subject, difficulty, mcqCount, shortCount, longCount, scenarioCount
+        documentId, subject, difficulty, mcqCount, dsaCount, aptitudeCount, shortCount, longCount, scenarioCount, topic, questionSource, timeLimit
       });
       return response.data;
     } catch (error) {
@@ -126,16 +126,55 @@ const testService = {
         category = 'ai';
       }
 
+      // Quick fallback dsa mock question definitions
+      const localDsa = [
+        {
+          id: 'q_dsa_' + Math.random().toString(36).substr(2, 5),
+          type: 'dsa',
+          questionTitle: 'Invert Binary Tree',
+          question: 'Given the root of a binary tree, invert the tree, and return its root.',
+          constraints: '0 <= Node count <= 100\n-100 <= Node.val <= 100',
+          inputFormat: 'Binary Tree Root (Node)',
+          outputFormat: 'Inverted Binary Tree Root',
+          sampleInput: 'root = [4,2,7,1,3,6,9]',
+          sampleOutput: '[4,7,2,9,6,3,1]',
+          explanation: 'Inverting left and right subtrees recursively.',
+          javaSignature: 'public TreeNode invertTree(TreeNode root) {\n    // Write your code here\n}',
+          starterCode: 'function solve(arr) {\n  // Write your JavaScript code here\n  // For testing, mock reversing items\n  return arr ? [...arr].reverse() : [];\n}',
+          expectedTimeComplexity: 'O(N)',
+          expectedSpaceComplexity: 'O(N)',
+          testCases: JSON.stringify([
+            { input: [[1, 2]], expected: [2, 1], functionName: 'solve' }
+          ]),
+          hiddenTestCases: JSON.stringify([
+            { input: [[4, 2, 7]], expected: [7, 2, 4], functionName: 'solve' }
+          ]),
+          marks: 10,
+          topic: topic || 'Trees'
+        }
+      ];
+
       const bank = mockQuestionBank[category] || mockQuestionBank.general;
 
       // Select questions based on counts requested
       const mcqs = [...bank.mcq].slice(0, Math.min(mcqCount || 2, bank.mcq.length));
+      const dsas = dsaCount > 0 ? localDsa.slice(0, Math.min(dsaCount, localDsa.length)) : [];
+      const aptitudes = [...(bank.aptitude || [])].slice(0, Math.min(aptitudeCount || 2, (bank.aptitude && bank.aptitude.length) || 0));
       const shorts = [...bank.short].slice(0, Math.min(shortCount || 2, bank.short.length));
       const longs = [...bank.long].slice(0, Math.min(longCount || 1, bank.long.length));
       const scenarios = [...bank.scenario].slice(0, Math.min(scenarioCount || 1, bank.scenario.length));
 
-      // Calculate total duration (e.g. 5 minutes per MCQ, 10 min per short, 15 min per long/scenario)
-      const durationMin = (mcqs.length * 2) + (shorts.length * 5) + (longs.length * 10) + (scenarios.length * 12) || 30;
+      // Calculate total duration (e.g. 2 min per MCQ/Aptitude, 15 min per DSA)
+      let durationMin = (mcqs.length * 2) + (aptitudes.length * 2) + (dsas.length * 15) + (shorts.length * 5) + (longs.length * 10) + (scenarios.length * 12) || 30;
+
+      if (timeLimit) {
+        if (timeLimit === 'No Limit') {
+          durationMin = 9999;
+        } else {
+          const parsed = parseInt(timeLimit);
+          if (!isNaN(parsed)) durationMin = parsed;
+        }
+      }
 
       const newTest = {
         _id: 'test_' + Math.random().toString(36).substr(2, 9),
@@ -146,6 +185,8 @@ const testService = {
         duration: durationMin,
         questions: {
           mcq: mcqs,
+          dsa: dsas,
+          aptitude: aptitudes,
           short: shorts,
           long: longs,
           scenario: scenarios
@@ -199,6 +240,42 @@ const testService = {
       return {
         success: true,
         test
+      };
+    }
+  },
+
+  // Run code sandbox execution
+  runCode: async (code, language, testCases, functionName) => {
+    try {
+      const response = await API.post('/tests/run-code', { code, language, testCases, functionName });
+      return response.data;
+    } catch (error) {
+      console.warn("API code run failed, executing code in browser sandbox", error);
+      const consoleLogs = [];
+      const originalLog = console.log;
+      console.log = (...args) => {
+        consoleLogs.push(args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' '));
+      };
+
+      let result = undefined;
+      const startTime = Date.now();
+      try {
+        result = new Function(code)();
+      } catch (e) {
+        console.log = originalLog;
+        return {
+          success: true,
+          error: e.message,
+          logs: consoleLogs,
+          executionTimeMs: Date.now() - startTime
+        };
+      }
+      console.log = originalLog;
+      return {
+        success: true,
+        result: result !== undefined ? String(result) : 'undefined',
+        logs: consoleLogs,
+        executionTimeMs: Date.now() - startTime
       };
     }
   }

@@ -3,6 +3,7 @@ const Test = require('../models/Test');
 const Question = require('../models/Question');
 const { gradeAnswers } = require('../services/answerGrader');
 const { sendNotification } = require('../services/notificationService');
+const { runDsaCode } = require('../services/codeRunner');
 
 // Helper to map result from Mongoose model to client format
 const formatResultForClient = (resVal, testObj, questionFeedback) => {
@@ -135,7 +136,7 @@ const submitTest = async (req, res, next) => {
     const optionMap = { 0: 'A', 1: 'B', 2: 'C', 3: 'D' };
 
     for (const q of questions) {
-      if (q.type === 'mcq') {
+      if (q.type === 'mcq' || q.type === 'aptitude') {
         const studentAnsIdx = answers[q._id];
         const studentAnsLetter = optionMap[studentAnsIdx] || '';
         const isCorrect = studentAnsLetter === q.correctAnswer;
@@ -152,7 +153,7 @@ const submitTest = async (req, res, next) => {
 
         answerDetails.push({
           question: q._id,
-          questionType: 'mcq',
+          questionType: q.type,
           questionText: q.questionText,
           studentAnswer: studentAnsIdx !== undefined ? optionsArr[studentAnsIdx] : 'No Answer',
           correctAnswer: q.options[q.correctAnswer] || '',
@@ -169,7 +170,7 @@ const submitTest = async (req, res, next) => {
 
         questionFeedback.push({
           questionId: q._id,
-          type: 'mcq',
+          type: q.type,
           question: q.questionText,
           studentAnswer: studentAnsIdx !== undefined ? optionsArr[studentAnsIdx] : 'No Answer',
           modelAnswer: q.options[q.correctAnswer] || '',
@@ -177,6 +178,67 @@ const submitTest = async (req, res, next) => {
           maxMarks: q.maxMarks,
           status: isCorrect ? 'correct' : 'incorrect',
           explanation: q.explanation || ''
+        });
+
+      } else if (q.type === 'dsa') {
+        const studentCode = answers[q._id] || '';
+        const studentLang = answers[`${q._id}_lang`] || 'javascript';
+
+        // Combine visible test cases and hidden test cases for final grading evaluation
+        const visibleCases = JSON.parse(q.testCases || '[]');
+        const hiddenCases = q.hiddenTestCases ? JSON.parse(q.hiddenTestCases) : [];
+        const allCases = [...visibleCases, ...hiddenCases];
+
+        const functionName = visibleCases[0]?.functionName || 'solve';
+
+        const runRes = await runDsaCode(studentCode, studentLang, JSON.stringify(allCases), functionName);
+
+        const totalCases = allCases.length || 1;
+        const passedCases = runRes.results ? runRes.results.filter(r => r.passed).length : 0;
+        const marksObtained = Math.round((passedCases / totalCases) * q.maxMarks);
+        const isCorrect = passedCases === totalCases;
+
+        totalScore += marksObtained;
+        totalMaxMarks += q.maxMarks;
+
+        if (!isCorrect) {
+          missedConcepts.add(q.topic || 'DSA Algorithms');
+        }
+
+        let feedbackMessage = `Passed ${passedCases}/${totalCases} test cases.`;
+        if (runRes.error) {
+          feedbackMessage += ` Error: ${runRes.error}`;
+        }
+        const errorLogs = runRes.error ? `\nRuntime Error: ${runRes.error}` : '';
+        const suggestions = `${feedbackMessage}${errorLogs}\nConsole output logs:\n${(runRes.logs || []).join('\n')}`;
+
+        answerDetails.push({
+          question: q._id,
+          questionType: 'dsa',
+          questionText: q.questionText,
+          studentAnswer: studentCode || 'Not Attempted',
+          correctAnswer: q.starterCode || '',
+          marksObtained,
+          maxMarks: q.maxMarks,
+          isCorrect,
+          topic: q.topic || 'DSA Algorithms',
+          aiFeedback: {
+            correctConcepts: isCorrect ? [q.topic] : [],
+            missingConcepts: !isCorrect ? [q.topic] : [],
+            suggestions
+          }
+        });
+
+        questionFeedback.push({
+          questionId: q._id,
+          type: 'dsa',
+          question: q.questionText,
+          studentAnswer: studentCode || 'Not Attempted',
+          modelAnswer: q.starterCode || '',
+          allocatedMarks: marksObtained,
+          maxMarks: q.maxMarks,
+          status: isCorrect ? 'correct' : (marksObtained > 0 ? 'partially_correct' : 'incorrect'),
+          explanation: suggestions
         });
 
       } else if (q.type === 'short') {
@@ -355,7 +417,7 @@ const submitTest = async (req, res, next) => {
     }
 
     const percentage = totalMaxMarks > 0 ? parseFloat(((totalScore / totalMaxMarks) * 100).toFixed(1)) : 0;
-    
+
     // Assign Grade
     let grade = 'F';
     if (percentage >= 90) grade = 'A+';
@@ -460,7 +522,7 @@ const getResult = async (req, res, next) => {
 
     const test = result.test || { subject: 'General', difficulty: 'medium' };
     const questions = await Question.find({ test: test._id });
-    
+
     const questionFeedback = [];
 
     for (const ans of result.answers) {

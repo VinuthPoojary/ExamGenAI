@@ -18,8 +18,68 @@ const QuestionSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ['mcq', 'short', 'long', 'scenario'],
+      enum: ['mcq', 'short', 'long', 'scenario', 'dsa', 'aptitude'],
       required: true,
+    },
+    section: {
+      type: String,
+      enum: ['mcq', 'dsa', 'aptitude'],
+      default: 'mcq',
+    },
+    questionTitle: {
+      type: String,
+      default: '',
+    },
+    constraints: {
+      type: String,
+      default: '',
+    },
+    inputFormat: {
+      type: String,
+      default: '',
+    },
+    outputFormat: {
+      type: String,
+      default: '',
+    },
+    sampleInput: {
+      type: String,
+      default: '',
+    },
+    sampleOutput: {
+      type: String,
+      default: '',
+    },
+    javaSignature: {
+      type: String,
+      default: '',
+    },
+    expectedTimeComplexity: {
+      type: String,
+      default: '',
+    },
+    expectedSpaceComplexity: {
+      type: String,
+      default: '',
+    },
+    starterCode: {
+      type: String,
+      default: '',
+    },
+    starterTemplates: {
+      javascript: { type: String, default: '' },
+      python: { type: String, default: '' },
+      java: { type: String, default: '' },
+      cpp: { type: String, default: '' },
+      c: { type: String, default: '' }
+    },
+    testCases: {
+      type: String, // Stringified JSON array of test cases
+      default: '',
+    },
+    hiddenTestCases: {
+      type: String, // Stringified JSON array of hidden test cases
+      default: '',
     },
     questionText: {
       type: String,
