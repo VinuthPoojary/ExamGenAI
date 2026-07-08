@@ -44,6 +44,18 @@ const getParameterCount = (userCodeStr, functionName, language = '') => {
     return null;
 };
 
+const getReturnType = (userCodeStr, functionName) => {
+    if (!userCodeStr) return null;
+    const userCode = String(userCodeStr);
+    const cleanCode = userCode.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+    const regex = new RegExp(`(?:public|static|final|synchronized|volatile|\\s)*([\\w\\[\\]<>*]+)\\s+${functionName}\\s*\\(`);
+    const match = cleanCode.match(regex);
+    if (match) {
+        return match[1].trim();
+    }
+    return null;
+};
+
 /**
  * Executes user code against a set of test cases
  * Supports JavaScript, Python, Java, C++, and C
@@ -115,7 +127,10 @@ const results = testCases.map((tc) => {
     if (typeof fn !== 'function') {
       return { passed: false, error: 'Function ' + tc.functionName + ' is not defined.' };
     }
-    const got = fn(...tc.input);
+    let got = fn(...tc.input);
+    if (got === undefined && tc.expected !== undefined && tc.input.length > 0) {
+      got = tc.input[0];
+    }
     const isMatch = JSON.stringify(got) === JSON.stringify(tc.expected);
     return { passed: isMatch, got, expected: tc.expected, input: tc.input };
   } catch (err) {
@@ -206,6 +221,8 @@ for tc in test_cases:
         
         args = tc.get('input', [])
         got = fn(*args)
+        if got is None and tc.get('expected') is not None and len(args) > 0:
+            got = args[0]
         
         # Match using JSON dumps comparison for exact structural identity
         is_match = json.dumps(got) == json.dumps(tc.get('expected'))
@@ -323,13 +340,20 @@ const runJavaSandbox = (userCode, testCases, functionName, tempDir) => {
             const expType = expItem.javaType || expItem.type;
             const expVal = expItem.javaVal || expItem.val;
 
+            const retType = getReturnType(userCode, functionName);
+            const isVoid = retType === 'void';
+
+            const runCall = isVoid
+                ? `solver.${functionName}(${argsText.join(', ')});\n          ${expType} gotObj = test_${idx}_arg_0;`
+                : `${expType} gotObj = solver.${functionName}(${argsText.join(', ')});`;
+
             testInvocations.push(`
       // Test Case ${idx + 1}
       {
         try {
           ${decls.join('\n          ')}
           ${expType} expected = ${expVal};
-          ${expType} gotObj = solver.${functionName}(${argsText.join(', ')});
+          ${runCall}
           boolean passed = java.util.Objects.deepEquals(gotObj, expected);
           jsonOut.append(String.format("{\\\"passed\\\":%b,\\\"got\\\":%s,\\\"expected\\\":%s}", 
             passed, toJson(gotObj), toJson(expected)));
@@ -504,14 +528,32 @@ const runCppSandbox = (userCode, testCases, functionName, tempDir, isC = false) 
 
             const expItem = helperTypeMapping(tc.expected);
 
+            const retType = getReturnType(userCode, functionName);
+            const isVoid = retType === 'void';
+
             if (isC) {
+                const firstArgIsArray = Array.isArray(tc.input[0]);
+                let runCall;
+                if (isVoid) {
+                    if (firstArgIsArray) {
+                        const item = helperTypeMapping(tc.input[0]);
+                        const rawType = item.type.replace('std::vector<', '').replace('>', '');
+                        runCall = `${functionName}(${argsText.join(', ')});\n            `
+                            + `std::vector<${rawType}> got(test_${idx}_arg_0, test_${idx}_arg_0 + test_${idx}_arg_0_size);`;
+                    } else {
+                        runCall = `${functionName}(${argsText.join(', ')});\n            auto got = test_${idx}_arg_0;`;
+                    }
+                } else {
+                    runCall = `auto got = ${functionName}(${argsText.join(', ')});`;
+                }
+
                 testInvocations.push(`
         // Test Case ${idx + 1}
         {
           try {
             ${decls.join('\n            ')}
-            auto got = ${functionName}(${argsText.join(', ')});
-            auto expected = ${expItem.val};
+            ${runCall}
+            ${expItem.type} expected = ${expItem.val};
             bool passed = (got == expected);
             json_out << "{\\\"passed\\\":" << (passed ? "true" : "false")
                      << ",\\\"got\\\":" << to_json(got)
@@ -522,13 +564,17 @@ const runCppSandbox = (userCode, testCases, functionName, tempDir, isC = false) 
         }
         `);
             } else {
+                const runCall = isVoid
+                    ? `solver.${functionName}(${argsText.join(', ')});\n            auto got = test_${idx}_arg_0;`
+                    : `auto got = solver.${functionName}(${argsText.join(', ')});`;
+
                 testInvocations.push(`
         // Test Case ${idx + 1}
         {
           try {
             ${decls.join('\n            ')}
-            auto got = solver.${functionName}(${argsText.join(', ')});
-            auto expected = ${expItem.val};
+            ${runCall}
+            ${expItem.type} expected = ${expItem.val};
             bool passed = (got == expected);
             json_out << "{\\\"passed\\\":" << (passed ? "true" : "false")
                      << ",\\\"got\\\":" << to_json(got)

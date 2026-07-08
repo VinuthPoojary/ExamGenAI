@@ -23,7 +23,7 @@ async function testNotesGen() {
 
     // Call the exact same prompt generation logic
     console.log("Calling Gemini API to generate notes...");
-    
+
     // Copy the generateNotesViaAI code directly to test it
     const apiKey = process.env.GEMINI_API_KEY;
     const prompt = `
@@ -49,7 +49,7 @@ JSON Format:
   - Step-by-step workflow of how it works.
   
   ### 3. Technical Specifications & Mathematical Foundations
-  - List of important technical specs, algorithms, or equations (written in standard markdown or LaTeX formatting if applicable).
+  - List of important technical specs, algorithms, or equations. Avoid using raw math equations with unescaped backslashes (like newlines or LaTeX backslashes) to prevent JSON syntax errors. If using math equations, make sure they are written in clean text or have double-escaped backslashes.
   
   ### 4. Comparison & Performance Trade-offs
   - A clean markdown table comparing advantages, disadvantages, or different variants/approaches.

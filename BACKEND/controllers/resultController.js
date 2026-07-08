@@ -1,6 +1,7 @@
 const Result = require('../models/Result');
 const Test = require('../models/Test');
 const Question = require('../models/Question');
+const Document = require('../models/Document');
 const { gradeAnswers } = require('../services/answerGrader');
 const { sendNotification } = require('../services/notificationService');
 const { runDsaCode } = require('../services/codeRunner');

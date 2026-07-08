@@ -83,8 +83,14 @@ const generateTest = async (req, res, next) => {
     let docSubject = subject || 'General';
     let docName = 'General Knowledge Manual';
     let contextText = '';
+    let docIdToSave = documentId || null;
 
-    if (documentId) {
+    if (Number(aptitudeCount) > 0) {
+      docIdToSave = null;
+      docSubject = topic || 'Mixed Aptitude';
+      docName = `Aptitude Topic: ${docSubject}`;
+      contextText = '';
+    } else if (documentId) {
       document = await Document.findOne({ _id: documentId, user: req.user.id });
       if (!document) {
         return res.status(404).json({ success: false, message: 'Document not found' });
@@ -141,7 +147,7 @@ const generateTest = async (req, res, next) => {
     // Build Mongoose Test Document
     const test = await Test.create({
       user: req.user.id,
-      document: documentId || null,
+      document: docIdToSave,
       title: `Practice Exam: ${docSubject}`,
       subject: docSubject,
       difficulty: (difficulty || 'medium').toLowerCase(),
@@ -161,12 +167,14 @@ const generateTest = async (req, res, next) => {
 
     // Save generated questions to DB
     for (const q of questionsData) {
+      const qType = q.type || (Number(aptitudeCount) > 0 ? 'aptitude' : 'mcq');
+      const qSection = q.section || (qType === 'dsa' ? 'dsa' : (qType === 'aptitude' ? 'aptitude' : 'mcq'));
       const dbQ = await Question.create({
         test: test._id,
-        document: documentId || null,
-        type: q.type,
-        section: q.section || (q.type === 'dsa' ? 'dsa' : (q.type === 'aptitude' ? 'aptitude' : 'mcq')),
-        questionText: q.questionText,
+        document: docIdToSave,
+        type: qType,
+        section: qSection,
+        questionText: q.questionText || q.question || '',
         questionTitle: q.questionTitle || '',
         constraints: q.constraints || '',
         inputFormat: q.inputFormat || '',
@@ -178,9 +186,9 @@ const generateTest = async (req, res, next) => {
         expectedSpaceComplexity: q.expectedSpaceComplexity || '',
         options: q.options || {},
         correctAnswer: q.correctAnswer || '',
-        maxMarks: q.maxMarks || (q.type === 'dsa' ? 10 : 2),
+        maxMarks: q.maxMarks || (qType === 'dsa' ? 10 : 2),
         difficulty: (difficulty || 'medium').toLowerCase(),
-        topic: q.topic || 'General Concepts',
+        topic: q.topic || docSubject || 'General Concepts',
         explanation: q.explanation || '',
         modelAnswer: q.modelAnswer || '',
         starterCode: q.starterCode || '',

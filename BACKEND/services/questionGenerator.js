@@ -19,12 +19,38 @@ For the DSA Coding Challenges:
 - Make sure the difficulty matches: ${difficulty}.
 ` : '';
 
+  const aptitudeContext = (config.aptitudeCount > 0) ? `
+For the Aptitude MCQ Questions:
+- Topic: ${config.topic || 'Mixed Aptitude'}
+- Ensure the questions match the selected Topic and cover relevant problems under it.
+- Difficulty Level: ${difficulty}.
+- Every generated question MUST be a multiple-choice question.
+- Every question MUST have exactly 4 options (A, B, C, D) and only ONE correct option.
+- Every question MUST include a detailed step-by-step mathematical or logical explanation.
+- Crucially, avoid duplicate questions.
+- Return the questions in this JSON format layout:
+  {
+    "type": "aptitude",
+    "section": "aptitude",
+    "question": "Question statement here",
+    "options": {
+      "A": "Option A text",
+      "B": "Option B text",
+      "C": "Option C text",
+      "D": "Option D text"
+    },
+    "correctAnswer": "A", // Or B, C, D
+    "explanation": "Detailed explanation here"
+  }
+` : '';
+
   const prompt = `
 You are an expert academic examiner. Your task is to generate high-fidelity, challenging exam questions based on the following subject domain and source material notes.
 
 Subject: ${subject}
 Difficulty Level: ${difficulty}
 ${dsaContext}
+${aptitudeContext}
 Source Material Context Notes:
 ${contextCleaned || 'No reference file provided. Generate general knowledge questions based entirely on the subject area.'}
 

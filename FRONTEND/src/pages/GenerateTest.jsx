@@ -52,6 +52,9 @@ const GenerateTest = () => {
   const [dsaSource, setDsaSource] = useState('AI Generated');
   const [dsaTimeLimit, setDsaTimeLimit] = useState('45 Minutes');
 
+  // Aptitude Specialty Fields
+  const [aptitudeTopic, setAptitudeTopic] = useState('Mixed Aptitude');
+
   const [generating, setGenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState('');
   const [error, setError] = useState(null);
@@ -103,10 +106,14 @@ const GenerateTest = () => {
   const handleGenerate = async (e) => {
     e.preventDefault();
 
-    // For DSA, subject is determined by dsaTopic
-    const finalSubject = activeType === 'dsa' ? (dsaTopic === 'Mixed' ? 'Data Structures & Algorithms' : dsaTopic) : subject;
+    // For DSA, subject is determined by dsaTopic. For Aptitude, it is determined by aptitudeTopic.
+    const finalSubject = activeType === 'dsa'
+      ? (dsaTopic === 'Mixed' ? 'Data Structures & Algorithms' : dsaTopic)
+      : activeType === 'aptitude'
+        ? aptitudeTopic
+        : subject;
 
-    if (!finalSubject && activeType !== 'dsa') {
+    if (!finalSubject && activeType !== 'dsa' && activeType !== 'aptitude') {
       setError('Please specify a subject domain.');
       return;
     }
@@ -129,6 +136,13 @@ const GenerateTest = () => {
       'Writing Java execution signature...',
       'Assembling visible and hidden test cases...',
       'AI Question Compilation complete!'
+    ] : activeType === 'aptitude' ? [
+      'Initializing Aptitude Assessment Setup...',
+      'Targeting quantitative and logical reasoning frameworks...',
+      'Formulating standard multiple-choice challenges...',
+      'Calculating step-by-step mathematical explanations...',
+      'Verifying distractor options accuracy...',
+      'Aptitude Question Compilation complete!'
     ] : [
       'Locating document nodes in vector database...',
       'Retrieving relevant topic summaries...',
@@ -145,7 +159,7 @@ const GenerateTest = () => {
 
     try {
       const data = await testService.generateTest({
-        documentId: activeType === 'dsa' ? null : (selectedDocId || null),
+        documentId: (activeType === 'dsa' || activeType === 'aptitude') ? null : (selectedDocId || null),
         subject: finalSubject,
         difficulty,
         mcqCount: activeType === 'mcq' ? Number(questionCount) : 0,
@@ -154,8 +168,8 @@ const GenerateTest = () => {
         shortCount: 0,
         longCount: 0,
         scenarioCount: 0,
-        // DSA specialized fields
-        topic: activeType === 'dsa' ? dsaTopic : undefined,
+        // DSA / Aptitude specialized fields
+        topic: activeType === 'dsa' ? dsaTopic : (activeType === 'aptitude' ? aptitudeTopic : undefined),
         questionSource: activeType === 'dsa' ? dsaSource : undefined,
         timeLimit: activeType === 'dsa' ? dsaTimeLimit : undefined
       });
@@ -239,8 +253,8 @@ const GenerateTest = () => {
         <form onSubmit={handleGenerate} className="glass-panel border border-brand-border/40 rounded-2xl p-6 md:p-8 space-y-6 relative">
           <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-brand-primary via-brand-secondary to-brand-accent"></div>
 
-          {/* Document Select - Hidden for DSA */}
-          {activeType !== 'dsa' && (
+          {/* Document Select - Hidden for DSA and Aptitude */}
+          {activeType === 'mcq' && (
             <div className="space-y-2">
               <label className="block text-xs font-semibold text-brand-textSecondary uppercase tracking-wider">
                 Source Material
@@ -368,8 +382,56 @@ const GenerateTest = () => {
                 </div>
               </div>
             </div>
+          ) : activeType === 'aptitude' ? (
+            /* Aptitude Form Layout */
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Topic Dropdown */}
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-brand-textSecondary uppercase tracking-wider">
+                  Topic
+                </label>
+                <select
+                  value={aptitudeTopic}
+                  onChange={(e) => setAptitudeTopic(e.target.value)}
+                  className="w-full bg-brand-darkBg border border-brand-border/60 hover:border-brand-border focus:border-brand-primary rounded-xl px-4 py-3 text-sm text-brand-textPrimary focus:outline-none transition-all"
+                >
+                  {[
+                    'Quantitative Aptitude', 'Logical Reasoning', 'Verbal Ability', 'Data Interpretation',
+                    'Number System', 'Percentage', 'Profit & Loss', 'Ratio & Proportion', 'Average',
+                    'Time & Work', 'Time, Speed & Distance', 'Pipes & Cisterns', 'Simple & Compound Interest',
+                    'Probability', 'Permutations & Combinations', 'Mixtures & Allegations', 'Ages',
+                    'Partnership', 'Boats & Streams', 'Calendar', 'Clock', 'Blood Relations',
+                    'Direction Sense', 'Coding & Decoding', 'Series', 'Seating Arrangement',
+                    'Syllogism', 'Puzzles', 'Mixed Aptitude'
+                  ].map(t => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-brand-textSecondary uppercase tracking-wider">
+                  Difficulty Level
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {difficulties.map((diff) => (
+                    <button
+                      key={diff}
+                      type="button"
+                      onClick={() => setDifficulty(diff)}
+                      className={`py-3 px-3 rounded-xl border text-xs font-bold transition-all ${difficulty === diff
+                        ? 'bg-brand-primary/10 border-brand-primary text-brand-textPrimary shadow-glow'
+                        : 'bg-brand-cardBg border-brand-border/30 text-brand-textSecondary hover:border-brand-primary/30 hover:text-brand-textPrimary'
+                        }`}
+                    >
+                      {diff}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
           ) : (
-            /* MCQ / Aptitude Form Layout */
+            /* MCQ Form Layout */
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <label className="block text-xs font-semibold text-brand-textSecondary uppercase tracking-wider">
