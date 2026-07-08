@@ -50,7 +50,6 @@ const AppRoutes = () => {
           <Route path="/generate-test/:type" element={<GenerateTest />} />
           <Route path="/assistant" element={<Assistant />} />
           <Route path="/mock-interview" element={<MockInterviewHub />} />
-          <Route path="/mock-interview/session/:id" element={<MockInterviewWorkspace />} />
           <Route path="/mock-interview/report/:id" element={<MockInterviewReport />} />
           <Route path="/results/:id" element={<Results />} />
           <Route path="/analytics" element={<Analytics />} />
@@ -59,6 +58,9 @@ const AppRoutes = () => {
           <Route path="/learning-hub/:branch/:subjectId" element={<LearningSubject />} />
           <Route path="/learning-hub/:branch/:subjectId/:topicId" element={<LearningNotesViewer />} />
         </Route>
+
+        {/* Dedicated Full-Screen Mock Interview Route */}
+        <Route path="/mock-interview/session/:id" element={<MockInterviewWorkspace />} />
 
         {/* Protected Routes - Distraction-Free Exam View */}
         <Route element={<ExamLayout />}>
