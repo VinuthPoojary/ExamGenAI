@@ -28,8 +28,17 @@ const protect = async (req, res, next) => {
     // Verify token signature and expiry
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Fetch user from DB (exclude password)
-    const user = await User.findById(decoded.id).select('-password');
+    // Fetch user from DB (exclude password) - wrapped in try-catch to distinguish DB errors from token verification errors
+    let user;
+    try {
+      user = await User.findById(decoded.id).select('-password');
+    } catch (dbError) {
+      console.error('Database connection/query error in auth middleware:', dbError);
+      return res.status(500).json({
+        success: false,
+        message: 'Internal server error during session validation. Please reload.',
+      });
+    }
 
     if (!user) {
       return res.status(401).json({

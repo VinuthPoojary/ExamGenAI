@@ -20,7 +20,14 @@ router.get('/stream', async (req, res, next) => {
 
     // Verify query JWT token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.id);
+
+    let user;
+    try {
+      user = await User.findById(decoded.id);
+    } catch (dbError) {
+      console.error('Database connection/query error in notifications stream:', dbError);
+      return res.status(500).json({ success: false, message: 'Database connection/query error.' });
+    }
 
     if (!user || !user.isActive) {
       return res.status(401).json({ success: false, message: 'Invalid or inactive user token.' });
@@ -29,6 +36,9 @@ router.get('/stream', async (req, res, next) => {
     // Register SSE client connection
     registerClient(user._id.toString(), res);
   } catch (error) {
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ success: false, message: 'Token expired. Please log in again.' });
+    }
     res.status(401).json({ success: false, message: 'Authentication failed.' });
   }
 });

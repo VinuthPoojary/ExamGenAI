@@ -829,18 +829,6 @@ const TakeTest = () => {
                       </div>
                     )}
 
-                    {/* Java Method Signature reference */}
-                    {activeQuestion.javaSignature && (
-                      <div className="space-y-1.5 border border-brand-border/25 rounded-xl overflow-hidden bg-brand-darkBg/80">
-                        <div className="px-3 py-1.5 bg-brand-darkBg flex justify-between items-center text-[10px] text-brand-textSecondary font-semibold uppercase tracking-wider border-b border-brand-border/20">
-                          <span>Java Starter Template Reference</span>
-                          <span className="text-brand-accent/70 capitalize">Read Only</span>
-                        </div>
-                        <pre className="p-3.5 font-mono text-[11px] text-zinc-400 overflow-x-auto leading-relaxed whitespace-pre font-semibold">
-                          {activeQuestion.javaSignature}
-                        </pre>
-                      </div>
-                    )}
                   </div>
 
                   {/* Predefined Test Cases Status Reviews */}
