@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node --dns-result-order=ipv4first server.js",
-    "dev": "nodemon --dns-result-order=ipv4first server.js"
+    "dev": "nodemon --dns-result-order=ipv4first server.js",
+    "postinstall": "node scripts/install-jdk.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

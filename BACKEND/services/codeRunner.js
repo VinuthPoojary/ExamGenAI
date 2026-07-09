@@ -315,6 +315,22 @@ const helperTypeMapping = (val) => {
     return { type: 'int', val: '0', javaType: 'int' };
 };
 
+const getJavaCompilerPath = () => {
+    const localJavac = path.join(__dirname, '..', 'bin', 'jdk17', 'bin', 'javac');
+    if (fs.existsSync(localJavac)) {
+        return `"${localJavac}"`;
+    }
+    return 'javac';
+};
+
+const getJavaRuntimePath = () => {
+    const localJava = path.join(__dirname, '..', 'bin', 'jdk17', 'bin', 'java');
+    if (fs.existsSync(localJava)) {
+        return `"${localJava}"`;
+    }
+    return 'java';
+};
+
 /**
  * Java helper and execution sandbox
  */
@@ -439,9 +455,12 @@ public class SolutionRunner {
 
         fs.writeFileSync(path.join(tempDir, 'SolutionRunner.java'), finalFileContent);
 
+        const javac = getJavaCompilerPath();
+        const java = getJavaRuntimePath();
+
         const startTime = Date.now();
         // Compile
-        exec(`javac -d "${tempDir}" "${path.join(tempDir, 'SolutionRunner.java')}"`, (compileErr, compileStdout, compileStderr) => {
+        exec(`${javac} -d "${tempDir}" "${path.join(tempDir, 'SolutionRunner.java')}"`, (compileErr, compileStdout, compileStderr) => {
             if (compileErr) {
                 resolve({
                     success: true,
@@ -454,7 +473,7 @@ public class SolutionRunner {
             }
 
             // Execute
-            exec(`java -cp "${tempDir}" SolutionRunner`, { timeout: 2000 }, (error, stdout, stderr) => {
+            exec(`${java} -cp "${tempDir}" SolutionRunner`, { timeout: 2000 }, (error, stdout, stderr) => {
                 const executionTimeMs = Date.now() - startTime;
                 const logs = [];
                 let executionError = null;
