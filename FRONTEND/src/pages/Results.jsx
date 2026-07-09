@@ -93,7 +93,7 @@ const Results = () => {
         ) : (
           <div className="grid grid-cols-1 gap-4">
             {historyList.map((res) => (
-              <div 
+              <div
                 key={res._id}
                 onClick={() => navigate(`/results/${res._id}`)}
                 className="glass-panel glass-panel-hover border border-brand-border/35 rounded-2xl p-5 flex items-center justify-between gap-4 cursor-pointer"
@@ -133,8 +133,8 @@ const Results = () => {
 
   return (
     <div className="space-y-8 animate-fadeIn max-w-5xl mx-auto text-brand-textPrimary">
-      <PageHeader 
-        title="Grading & Evaluation Report" 
+      <PageHeader
+        title="Grading & Evaluation Report"
         subtitle={`Exam: ${result.testSubject} | Reference document: ${result.documentName}`}
       >
         <button
@@ -180,8 +180,8 @@ const Results = () => {
         <span className="text-xs font-semibold text-brand-textSecondary uppercase tracking-wider block">Identified Weak Areas</span>
         <div className="flex flex-wrap gap-2">
           {result.weakTopics.map((topic, i) => (
-            <span 
-              key={i} 
+            <span
+              key={i}
               className="px-3 py-1.5 rounded-xl bg-brand-warning/10 text-brand-warning border border-brand-warning/20 text-xs font-bold font-mono"
             >
               {topic}
@@ -204,7 +204,7 @@ const Results = () => {
             let statusIcon = <XCircle className="w-5 h-5 text-brand-error" />;
             let statusText = 'Incorrect';
             let bgStyle = 'bg-brand-error/5 border-brand-error/25';
-            
+
             if (isCorrect) {
               statusIcon = <CheckCircle2 className="w-5 h-5 text-brand-success" />;
               statusText = 'Correct';
@@ -216,7 +216,7 @@ const Results = () => {
             }
 
             return (
-              <div 
+              <div
                 key={idx}
                 className={`glass-panel border rounded-2xl p-6 relative overflow-hidden space-y-4 ${bgStyle}`}
               >
@@ -254,15 +254,7 @@ const Results = () => {
                     </p>
                   </div>
 
-                  {/* Model Reference Answer */}
-                  <div className="p-4 rounded-xl bg-brand-primary/5 border border-brand-primary/20 space-y-2">
-                    <span className="text-[10px] font-bold text-brand-accent uppercase tracking-wider block border-b border-brand-primary/10 pb-1">
-                      Model Answer Reference
-                    </span>
-                    <p className="text-sm text-brand-textPrimary font-sans leading-relaxed whitespace-pre-wrap break-words">
-                      {feedback.modelAnswer || <span className="italic text-brand-textSecondary text-xs">No reference answer provided</span>}
-                    </p>
-                  </div>
+
                 </div>
 
                 {/* AI Explanation / Suggestions */}
