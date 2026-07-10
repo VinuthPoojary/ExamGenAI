@@ -72,6 +72,38 @@ const Register = () => {
     return () => clearInterval(interval);
   }, [timer]);
 
+  const getPasswordStrength = (pass) => {
+    if (!pass) return { score: 0, label: '', color: '', width: 'w-0' };
+    let score = 0;
+    if (pass.length >= 8) score++;
+    if (/[a-z]/.test(pass)) score++;
+    if (/[A-Z]/.test(pass)) score++;
+    if (/[0-9]/.test(pass)) score++;
+    if (/[^A-Za-z0-9]/.test(pass)) score++;
+
+    let label = 'Weak';
+    let color = 'bg-red-500';
+    let width = 'w-1/5';
+    if (score === 2) {
+      label = 'Weak';
+      color = 'bg-red-400';
+      width = 'w-2/5';
+    } else if (score === 3) {
+      label = 'Fair';
+      color = 'bg-amber-500';
+      width = 'w-3/5';
+    } else if (score === 4) {
+      label = 'Good';
+      color = 'bg-emerald-400';
+      width = 'w-4/5';
+    } else if (score === 5) {
+      label = 'Strong';
+      color = 'bg-brand-success';
+      width = 'w-full';
+    }
+    return { score, label, color, width };
+  };
+
   const handleValidation = () => {
     if (!name || !email || !password || !confirmPassword) {
       setLocalError('All fields are required.');
@@ -86,8 +118,24 @@ const Register = () => {
       setLocalError('Please enter a valid email address.');
       return false;
     }
-    if (password.length < 6) {
-      setLocalError('Password must be at least 6 characters.');
+    if (password.length < 8) {
+      setLocalError('Password must be at least 8 characters.');
+      return false;
+    }
+    if (!/[A-Z]/.test(password)) {
+      setLocalError('Password must contain at least one uppercase letter.');
+      return false;
+    }
+    if (!/[a-z]/.test(password)) {
+      setLocalError('Password must contain at least one lowercase letter.');
+      return false;
+    }
+    if (!/[0-9]/.test(password)) {
+      setLocalError('Password must contain at least one number.');
+      return false;
+    }
+    if (!/[^A-Za-z0-9]/.test(password)) {
+      setLocalError('Password must contain at least one special character.');
       return false;
     }
     if (password !== confirmPassword) {
@@ -105,7 +153,7 @@ const Register = () => {
     setLoading(true);
     setLocalError(null);
     setSuccessMsg(null);
-    
+
     const result = await sendRegisterOTP(name, email, password);
     setLoading(false);
 
@@ -132,7 +180,7 @@ const Register = () => {
     setLoading(true);
     setLocalError(null);
     setSuccessMsg(null);
-    
+
     const result = await register(name, email, password, otp);
     setLoading(false);
 
@@ -151,10 +199,10 @@ const Register = () => {
     setLoading(true);
     setLocalError(null);
     setSuccessMsg(null);
-    
+
     const result = await sendRegisterOTP(name, email, password);
     setLoading(false);
-    
+
     if (result.success) {
       setTimer(60);
       setSuccessMsg('A new verification code has been sent.');
@@ -252,9 +300,47 @@ const Register = () => {
                     className="w-full bg-brand-darkBg border border-brand-border/60 hover:border-brand-border focus:border-brand-primary rounded-xl pl-10 pr-4 py-3 text-sm text-brand-textPrimary focus:outline-none transition-all placeholder:text-brand-textSecondary/40 font-mono"
                   />
                 </div>
+
+                {password && (
+                  <div className="mt-2.5 space-y-2 select-none animate-fadeIn">
+                    <div className="flex items-center justify-between text-[10px]">
+                      <span className="text-brand-textSecondary">Password Strength:</span>
+                      <span className={`font-bold transition-colors ${getPasswordStrength(password).score <= 2 ? 'text-red-400' :
+                          getPasswordStrength(password).score === 3 ? 'text-amber-400' :
+                            getPasswordStrength(password).score === 4 ? 'text-emerald-400' :
+                              'text-brand-success'
+                        }`}>
+                        {getPasswordStrength(password).label}
+                      </span>
+                    </div>
+                    {/* Strength Progress Bar */}
+                    <div className="h-1 w-full bg-brand-border/30 rounded-full overflow-hidden">
+                      <div className={`h-full transition-all duration-300 ${getPasswordStrength(password).color} ${getPasswordStrength(password).width}`}></div>
+                    </div>
+                    {/* Criteria Checklist */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1.5 pt-1.5">
+                      {[
+                        { label: 'Min. 8 characters', met: password.length >= 8 },
+                        { label: 'Uppercase letter (A-Z)', met: /[A-Z]/.test(password) },
+                        { label: 'Lowercase letter (a-z)', met: /[a-z]/.test(password) },
+                        { label: 'One number (0-9)', met: /[0-9]/.test(password) },
+                        { label: 'Special char (e.g. !@#)', met: /[^A-Za-z0-9]/.test(password) },
+                      ].map((item, idx) => (
+                        <div key={idx} className="flex items-start space-x-1 text-[10px] leading-tight">
+                          <span className={`transition-colors font-bold ${item.met ? 'text-brand-success' : 'text-brand-textSecondary/30'}`}>
+                            {item.met ? '✓' : '•'}
+                          </span>
+                          <span className={`${item.met ? 'text-brand-textPrimary' : 'text-brand-textSecondary/50'}`}>
+                            {item.label}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 flex flex-col justify-start">
                 <label className="block text-xs font-semibold text-brand-textSecondary uppercase tracking-wider">
                   Confirm Password
                 </label>

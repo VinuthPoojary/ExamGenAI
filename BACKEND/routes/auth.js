@@ -15,7 +15,11 @@ const sendRegisterOtpValidation = [
     .trim()
     .isEmail().withMessage('Please enter a valid email'),
   body('password')
-    .isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+    .isLength({ min: 8 }).withMessage('Password must be at least 8 characters')
+    .matches(/[A-Z]/).withMessage('Password must contain at least one uppercase letter')
+    .matches(/[a-z]/).withMessage('Password must contain at least one lowercase letter')
+    .matches(/[0-9]/).withMessage('Password must contain at least one number')
+    .matches(/[^A-Za-z0-9]/).withMessage('Password must contain at least one special character'),
 ];
 
 const registerValidation = [
@@ -36,16 +40,21 @@ const forgotPasswordValidation = [
 const resetPasswordValidation = [
   body('email').trim().isEmail().withMessage('Please enter a valid email'),
   body('otp').isLength({ min: 6, max: 6 }).withMessage('OTP must be a 6-digit number'),
-  body('newPassword').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+  body('newPassword')
+    .isLength({ min: 8 }).withMessage('Password must be at least 8 characters')
+    .matches(/[A-Z]/).withMessage('Password must contain at least one uppercase letter')
+    .matches(/[a-z]/).withMessage('Password must contain at least one lowercase letter')
+    .matches(/[0-9]/).withMessage('Password must contain at least one number')
+    .matches(/[^A-Za-z0-9]/).withMessage('Password must contain at least one special character'),
 ];
 
 // Routes
 router.post('/send-register-otp', sendRegisterOtpValidation, sendRegisterOTP);
-router.post('/register',        registerValidation,       register);
-router.post('/login',           loginValidation,          login);
-router.post('/google',                                    googleLogin);
+router.post('/register', registerValidation, register);
+router.post('/login', loginValidation, login);
+router.post('/google', googleLogin);
 router.post('/forgot-password', forgotPasswordValidation, forgotPassword);
-router.post('/reset-password',  resetPasswordValidation,  resetPassword);
-router.get('/me',               protect,                  getMe);
+router.post('/reset-password', resetPasswordValidation, resetPassword);
+router.get('/me', protect, getMe);
 
 module.exports = router;
